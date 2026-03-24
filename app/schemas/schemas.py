@@ -156,3 +156,15 @@ class LGUReportResponse(BaseModel):
     high_severity_count: int
     heatmap_points: List[HeatmapPoint]
     csv_download_url: Optional[str] = None
+
+
+# ML — path surface classification (MobileNetV3)
+class PathClassificationResponse(BaseModel):
+    """Transparent classifier output; not committed to live map data without verification."""
+
+    path_condition: PathCondition
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    probabilities: dict[str, float]
+    narrative_reasons: List[str]
+    checkpoint_loaded: bool
+    eligible_for_live_map: bool = False

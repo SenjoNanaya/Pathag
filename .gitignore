@@ -1,0 +1,16 @@
+# Python caches and artifacts
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Local environment
+.env
+.venv/
+venv/
+
+# Local data and ML artifacts
+sidewalk_dataset/
+ml_service/weights/*.pt
+
+# Local uploads/runtime files
+uploads/
