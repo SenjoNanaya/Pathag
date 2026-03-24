@@ -10,6 +10,15 @@ class MapTest extends StatefulWidget {
 }
 
 class _MapTest extends State<MapTest> {
+  final LatLng uplbGate = const LatLng(14.1675, 121.2431);
+  final LatLng physciBldg = const LatLng(14.164813642210433, 121.24206606451793);
+  
+  List<Marker> userTags = [];                     // PURPOSE: "Tags" Storage (List)
+  final Distance distanceCalc = const Distance(); // PURPOSE: Distance Calculator
+
+  // PURPOSE: Add Tag
+
+
   @override
   Widget build (BuildContext context) {
     return Scaffold(
@@ -29,7 +38,7 @@ class _MapTest extends State<MapTest> {
   Widget _buildBody(){
     return FlutterMap(
       options: MapOptions(
-        initialCenter: LatLng(14.1675, 121.2431),   // Los Baños, Laguna
+        initialCenter: uplbGate,   // Los Baños, Laguna
         initialZoom: 18                             // How close is the map initially? 
       ),
       children: [
