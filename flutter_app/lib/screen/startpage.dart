@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app/map_page.dart';
+import '../screen/login.dart';
+import '../screen/signup.dart';
 
 class StartPage extends StatefulWidget {
   const StartPage({super.key});
@@ -33,17 +34,7 @@ class _StartPage extends State<StartPage> {
                   color: Colors.blue);
               },
             ),
-            //const SizedBox(height: 20,),
 
-            // === | TAGLINE | ===
-            // const Text(
-            //   'Pathag',
-            //   style: TextStyle(
-            //     fontSize: 32,
-            //     fontWeight: FontWeight.bold,
-            //     letterSpacing: 1.5
-            //   ),
-            // ),
             const Text(
               'ano, tara?',
               style: TextStyle(
@@ -62,7 +53,7 @@ class _StartPage extends State<StartPage> {
                 height: 55,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => MapPage()));
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => LoginPage()));
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[800],
@@ -73,7 +64,7 @@ class _StartPage extends State<StartPage> {
                     elevation: 5
                   ),
                   child: const Text(
-                    'TARA!',
+                    'Login',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold
@@ -81,7 +72,30 @@ class _StartPage extends State<StartPage> {
                   )
                 ),
               ),
-            )
+            ),
+
+            // === | SIGN-UP ROW | ===
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              //crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text("Don't have an account?"),
+                TextButton(
+                  child: Text(
+                    'Sign-up',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[800]
+                    )
+                  ),
+                  onPressed: () => {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => SignUpPage()))
+                  },
+                )
+              ],
+            ),
+            const Spacer(flex: 1)
+            
           ],
         ),
       )

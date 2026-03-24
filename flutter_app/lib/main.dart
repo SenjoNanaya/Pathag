@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app/map_page.dart';
-import '../startpage.dart';
+import '../screen/map_page.dart';
+import '../screen/startpage.dart';
 
 
 void main() {
