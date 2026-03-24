@@ -16,8 +16,12 @@ class Settings(BaseSettings):
     ORS_BASE_URL: str = "https://api.openrouteservice.org/v2"
     
     # File uploads
-    UPLOAD_DIR: str = "/home/claude/pathag-backend/uploads"
+    UPLOAD_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE: int = 5 * 1024 * 1024  # 5MB
+
+    # MobileNetV3 path classification (PyTorch)
+    ML_DEVICE: str = "cpu"
+    ML_CHECKPOINT_PATH: Optional[str] = None
     
     # Application
     DEBUG: bool = True
