@@ -5,11 +5,14 @@ Calculates routes with accessibility scoring and user preference application
 import math
 from typing import List, Dict, Optional, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, or_, text
 from geoalchemy2.functions import ST_DWithin, ST_Distance, ST_Point
 from geoalchemy2.elements import WKTElement
 
+import httpx
+
 from app.models.models import PathSegment, ObstacleReport, User, PathCondition, ObstacleType
+from app.config import settings
 from app.schemas.schemas import RouteRequest, RouteResponse, RouteStep, Coordinate
 
 
@@ -22,51 +25,120 @@ class RoutingService:
         request: RouteRequest,
         user: Optional[User] = None
     ) -> RouteResponse:
-        # Calculate an accessible route between two points
-        
-        # 1. Generate base route coordinates
-        # 2. Check for obstacles along route
-        # 3. Calculate accessibility score
-        # 4. Apply user preferences
-        # 5. Generate turn-by-turn steps
-        # 6. Create warnings if needed
-        # Generate base route (simplified demo routing)
+        # 1) Get candidate routes (ORS alternatives if configured; otherwise fallback).
+        route_candidates = await self._generate_route_candidates(request.origin, request.destination)
 
-        coordinates = self._generate_route_coordinates(
-            request.origin, 
-            request.destination
-        )
-        
-        # Calculate distance and duration
+        best = None
+        best_score = -1.0
+
+        # 2) Score each candidate by accessibility and select the best.
+        for coordinates in route_candidates:
+            obstacles = self._get_obstacles_along_route(coordinates, buffer_meters=settings.OBSTACLE_ROUTE_BUFFER_METERS)
+            accessibility_score = self._calculate_accessibility_score(
+                coordinates=coordinates,
+                obstacles=obstacles,
+                request=request,
+                user=user,
+            )
+            if accessibility_score > best_score:
+                best_score = accessibility_score
+                best = {
+                    "coordinates": coordinates,
+                    "obstacles": obstacles,
+                }
+
+        assert best is not None  # for type-checkers; route_candidates always has >= 1
+        coordinates = best["coordinates"]
+        obstacles = best["obstacles"]
+
+        # 3) Final metrics for the selected route.
         distance = self._calculate_route_distance(coordinates)
         duration = self._estimate_duration(distance)
-        
-        # Get obstacles along route
-        obstacles = self._get_obstacles_along_route(coordinates)
-        
-        # Calculate accessibility score
-        accessibility_score = self._calculate_accessibility_score(
-            coordinates,
-            obstacles,
-            request,
-            user
-        )
-        
-        # Generate navigation steps
         steps = self._generate_route_steps(coordinates, obstacles)
-        
-        # Generate warnings
         warnings = self._generate_warnings(request, obstacles, user)
-        
+
         return RouteResponse(
             distance_meters=distance,
             estimated_duration_seconds=duration,
-            accessibility_score=accessibility_score,
+            accessibility_score=best_score,
             coordinates=coordinates,
             steps=steps,
-            warnings=warnings
+            warnings=warnings,
         )
     
+    async def _generate_route_candidates(
+        self,
+        origin: Coordinate,
+        destination: Coordinate,
+        num_candidates_fallback: int = 1,
+    ) -> List[List[List[float]]]:
+        """
+        Returns a list of alternative routes.
+
+        Each route is encoded as `[[lon, lat], ...]`.
+        """
+
+        if settings.ORS_API_KEY:
+            try:
+                coords_list = await self._fetch_ors_route_alternatives(origin, destination)
+                if coords_list:
+                    return coords_list
+            except Exception:
+                # ORS issues should not take down the entire routing service.
+                pass
+
+        # Fallback: simplified demo routing (single candidate).
+        return [self._generate_route_coordinates(origin, destination)]
+
+    async def _fetch_ors_route_alternatives(
+        self,
+        origin: Coordinate,
+        destination: Coordinate,
+    ) -> List[List[List[float]]]:
+        """
+        Calls OpenRouteService directions endpoint and returns alternative geometries.
+
+        The response structure can vary by ORS version/settings; parsing is defensive.
+        """
+
+        url = f"{settings.ORS_BASE_URL}/directions/{settings.ORS_PROFILE}"
+        headers = {"Authorization": settings.ORS_API_KEY}
+        payload = {
+            "coordinates": [
+                [origin.longitude, origin.latitude],
+                [destination.longitude, destination.latitude],
+            ],
+            "alternatives": settings.ORS_ALTERNATIVES,
+            "instructions": False,
+            # Ask ORS to include geometry so we can score obstacle impact along it.
+            "geometry": True,
+        }
+
+        async with httpx.AsyncClient(timeout=settings.ORS_REQUEST_TIMEOUT_SECONDS) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+
+        routes = data.get("routes") or []
+        coords_list: List[List[List[float]]] = []
+        for route in routes:
+            geom = route.get("geometry")
+            if not geom:
+                continue
+            # ORS often returns geojson: {"type":"LineString","coordinates":[...]}
+            if isinstance(geom, dict) and "coordinates" in geom:
+                coords = geom["coordinates"]
+            # Sometimes ORS returns geometry as a raw coordinate list.
+            elif isinstance(geom, list):
+                coords = geom
+            else:
+                continue
+
+            if coords:
+                coords_list.append([[float(lon), float(lat)] for lon, lat in coords])
+
+        return coords_list
+
     def _generate_route_coordinates(
         self, 
         origin: Coordinate, 
@@ -147,41 +219,38 @@ class RoutingService:
         coordinates: List[List[float]],
         buffer_meters: float = 50.0
     ) -> List[ObstacleReport]:
-        
-        # Get obstacles near the route
-        
-        # Uses PostGIS to find obstacles within buffer distance of route
-        
-        obstacles = []
-        
-        # Check obstacles near each coordinate
-        for lon, lat in coordinates:
-            # Create point geometry
-            point = f'POINT({lon} {lat})'
-            
-            # Query obstacles within buffer
-            nearby = self.db.query(ObstacleReport).filter(
+
+        if len(coordinates) < 2:
+            return []
+
+        # Build a single PostGIS LineString buffer query for efficiency.
+        # Coordinates are encoded as [[lon, lat], ...].
+        line_wkt = "LINESTRING(" + ", ".join(f"{lon} {lat}" for lon, lat in coordinates) + ")"
+
+        ttl_clause = or_(
+            ObstacleReport.is_temporary == False,
+            ObstacleReport.created_at
+            >= func.now() - text(f"interval '{settings.TEMP_OBSTACLE_TTL_HOURS} hours'"),
+        )
+
+        nearby = (
+            self.db.query(ObstacleReport)
+            .filter(
                 and_(
                     ObstacleReport.is_resolved == False,
+                    ObstacleReport.is_verified == True,
+                    ttl_clause,
                     func.ST_DWithin(
                         ObstacleReport.location,
-                        func.ST_GeomFromText(point, 4326),
-                        buffer_meters
-                    )
+                        func.ST_GeomFromText(line_wkt, 4326),
+                        buffer_meters,
+                    ),
                 )
-            ).all()
-            
-            obstacles.extend(nearby)
-        
-        # Remove duplicates
-        seen = set()
-        unique_obstacles = []
-        for obs in obstacles:
-            if obs.id not in seen:
-                seen.add(obs.id)
-                unique_obstacles.append(obs)
-        
-        return unique_obstacles
+            )
+            .all()
+        )
+
+        return nearby
     
     def _calculate_accessibility_score(
         self,

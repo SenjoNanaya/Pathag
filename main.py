@@ -9,6 +9,8 @@ from app.routes import obstacle_classification
 from app.routes import routes as routing_routes
 from app.routes import auth as auth_routes
 from app.routes import users as users_routes
+from app.routes import obstacles as obstacles_routes
+from app.routes import lgu_reports as lgu_routes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -74,6 +76,18 @@ app.include_router(
     routing_routes.router,
     prefix="/api/v1/routes",
     tags=["routes"],
+)
+
+app.include_router(
+    obstacles_routes.router,
+    prefix="/api/v1",
+    tags=["obstacles"],
+)
+
+app.include_router(
+    lgu_routes.router,
+    prefix="/api/v1",
+    tags=["lgu"],
 )
 
 if __name__ == "__main__":
