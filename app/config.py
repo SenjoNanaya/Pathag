@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # MobileNetV3 path classification (PyTorch)
     ML_DEVICE: str = "cpu"
     ML_CHECKPOINT_PATH: Optional[str] = None
+
+    # MobileNetV3 obstacle-type classification (PyTorch)
+    OBSTACLE_ML_CHECKPOINT_PATH: Optional[str] = None
     
     # Application
     DEBUG: bool = True

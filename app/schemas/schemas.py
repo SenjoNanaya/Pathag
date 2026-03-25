@@ -168,3 +168,18 @@ class PathClassificationResponse(BaseModel):
     narrative_reasons: List[str]
     checkpoint_loaded: bool
     eligible_for_live_map: bool = False
+
+
+# ML — obstacle-type classification (MobileNetV3)
+class ObstacleClassificationResponse(BaseModel):
+    """
+    Transparent classifier output; obstacle classification must not be used to write live map data
+    without human verification.
+    """
+
+    obstacle_type: ObstacleType
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    probabilities: dict[str, float]
+    narrative_reasons: List[str]
+    checkpoint_loaded: bool
+    eligible_for_live_map: bool = False

@@ -5,6 +5,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import ml_classification
+from app.routes import routes as routing_routes
+from app.routes import auth as auth_routes
+from app.routes import users as users_routes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,6 +43,24 @@ app.include_router(
     ml_classification.router,
     prefix="/api/v1/ml",
     tags=["ml"],
+)
+
+app.include_router(
+    auth_routes.router,
+    prefix="/api/v1/auth",
+    tags=["auth"],
+)
+
+app.include_router(
+    users_routes.router,
+    prefix="/api/v1/users",
+    tags=["users"],
+)
+
+app.include_router(
+    routing_routes.router,
+    prefix="/api/v1/routes",
+    tags=["routes"],
 )
 
 if __name__ == "__main__":
