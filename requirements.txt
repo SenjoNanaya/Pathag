@@ -22,8 +22,12 @@ email-validator==2.1.0
 # HTTP Client
 httpx==0.26.0
 
-# Image Processing (for future CV)
+# Image Processing
 pillow==10.2.0
+
+# Machine learning (MobileNetV3 — PyTorch)
+torch==2.2.0
+torchvision==0.17.0
 
 # Data Processing
 pandas==2.1.4
