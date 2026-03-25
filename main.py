@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import ml_classification
+from app.routes import obstacle_classification
 from app.routes import routes as routing_routes
 from app.routes import auth as auth_routes
 from app.routes import users as users_routes
@@ -20,6 +21,12 @@ async def lifespan(app: FastAPI):
 
     get_path_classifier()
     logger.info("Path classifier initialized")
+
+    from app.services.obstacle_classification import get_obstacle_classifier
+
+    get_obstacle_classifier()
+    logger.info("Obstacle classifier initialized")
+
     yield
     logger.info("Shutting down Pathag backend")
 
@@ -41,6 +48,12 @@ app.add_middleware(
 
 app.include_router(
     ml_classification.router,
+    prefix="/api/v1/ml",
+    tags=["ml"],
+)
+
+app.include_router(
+    obstacle_classification.router,
     prefix="/api/v1/ml",
     tags=["ml"],
 )
