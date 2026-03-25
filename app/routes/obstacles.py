@@ -25,6 +25,10 @@ from app.schemas.schemas import (
     ObstacleClassificationResponse,
 )
 from app.services.obstacle_classification import get_obstacle_classifier
+from app.services.verifier_classification import (
+    get_obstruction_verifier,
+    get_surface_problem_verifier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +148,8 @@ async def realtime_obstacle_stream(websocket: WebSocket) -> None:
 
     await websocket.accept()
     classifier = get_obstacle_classifier()
+    obstruction_verifier = get_obstruction_verifier()
+    surface_problem_verifier = get_surface_problem_verifier()
 
     try:
         while True:
@@ -166,19 +172,46 @@ async def realtime_obstacle_stream(websocket: WebSocket) -> None:
                 continue
 
             raw = classifier.predict_proba(image_bytes)
+            obstruction_raw = obstruction_verifier.predict_proba(image_bytes)
+            surface_raw = surface_problem_verifier.predict_proba(image_bytes)
 
-            # Suggested severity: map confidence to 1..5 (simple heuristic).
-            confidence = float(raw["confidence"])
-            suggested_severity = max(1, min(5, int(round(confidence * 5))))
+            obstacle_confidence = float(raw["confidence"])
+            suggested_severity = max(1, min(5, int(round(obstacle_confidence * 5))))
+
+            obstruction_present_probability = float(obstruction_raw["present_probability"])
+            surface_problem_present_probability = float(surface_raw["present_probability"])
+            obstruction_present = obstruction_present_probability >= 0.5
+            surface_problem_present = surface_problem_present_probability >= 0.5
+
+            # Choose what kind of report the client should create (single action).
+            if obstruction_present or surface_problem_present:
+                if obstruction_present_probability >= surface_problem_present_probability:
+                    suggested_report_kind = "obstacle"
+                    suggested_obstacle_type = raw["obstacle_type"]
+                else:
+                    suggested_report_kind = "surface_problem"
+                    # We store surface problems as an obstacle report for now.
+                    suggested_obstacle_type = ObstacleType.BROKEN_PAVEMENT.value
+            else:
+                suggested_report_kind = "none"
+                suggested_obstacle_type = None
 
             response: dict[str, object] = {
                 "obstacle_type": raw["obstacle_type"],
-                "confidence": confidence,
+                "confidence": obstacle_confidence,
                 "probabilities": raw["probabilities"],
                 "narrative_reasons": raw["narrative_reasons"],
                 "checkpoint_loaded": raw["checkpoint_loaded"],
                 "eligible_for_live_map": False,  # requires verification flow
                 "suggested_severity": suggested_severity,
+                "obstruction_present_probability": obstruction_present_probability,
+                "obstruction_present": obstruction_present,
+                "obstruction_verifier_checkpoint_loaded": obstruction_raw["checkpoint_loaded"],
+                "surface_problem_present_probability": surface_problem_present_probability,
+                "surface_problem_present": surface_problem_present,
+                "surface_problem_verifier_checkpoint_loaded": surface_raw["checkpoint_loaded"],
+                "suggested_report_kind": suggested_report_kind,
+                "suggested_obstacle_type": suggested_obstacle_type,
                 "latitude": data.get("latitude"),
                 "longitude": data.get("longitude"),
             }
