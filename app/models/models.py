@@ -54,6 +54,7 @@ class User(Base):
     
     # Relationships
     obstacle_reports = relationship("ObstacleReport", back_populates="reporter")
+    obstacle_verifications = relationship("ObstacleVerification", back_populates="verifier")
     path_validations = relationship("PathValidation", back_populates="validator")
 
 
@@ -121,6 +122,9 @@ class ObstacleReport(Base):
     # Associated path segment
     path_segment_id = Column(Integer, ForeignKey("path_segments.id"), nullable=True)
     path_segment = relationship("PathSegment", back_populates="obstacle_reports")
+
+    # Human verification events (crowdsourced / moderation).
+    verifications = relationship("ObstacleVerification", back_populates="obstacle_report")
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     resolved_at = Column(DateTime(timezone=True))
@@ -170,4 +174,32 @@ class Route(Base):
     # Cache for repeated queries
     is_cached = Column(Boolean, default=False)
     
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ObstacleVerification(Base):
+    """
+    Stores individual verifier confirmations for an obstacle report.
+
+    Route scoring uses `ObstacleReport.is_verified`, which is computed by
+    counting rows in this table and comparing against
+    `settings.OBSTACLE_VERIFICATION_THRESHOLD`.
+    """
+
+    __tablename__ = "obstacle_verifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    obstacle_report_id = Column(
+        Integer, ForeignKey("obstacle_reports.id"), nullable=False, index=True
+    )
+    obstacle_report = relationship("ObstacleReport", back_populates="verifications")
+
+    verifier_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    verifier = relationship("User", back_populates="obstacle_verifications")
+
+    notes = Column(Text)
+
+    # If you want "deny" support later, add a boolean here; for now we treat any row
+    # as a "verified" confirmation.
     created_at = Column(DateTime(timezone=True), server_default=func.now())

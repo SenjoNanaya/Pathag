@@ -107,12 +107,22 @@ class RouteResponse(BaseModel):
 
 # Obstacle Schemas
 class ObstacleReportCreate(BaseModel):
+    reporter_id: int
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     obstacle_type: ObstacleType
     description: Optional[str] = None
     severity: int = Field(default=3, ge=1, le=5)
     is_temporary: bool = True
+
+
+class ObstacleVerificationCreate(BaseModel):
+    verifier_id: int
+    notes: Optional[str] = None
+
+
+class ObstacleResolveCreate(BaseModel):
+    resolver_id: int
 
 
 class ObstacleReportResponse(BaseModel):
@@ -156,6 +166,25 @@ class LGUReportResponse(BaseModel):
     high_severity_count: int
     heatmap_points: List[HeatmapPoint]
     csv_download_url: Optional[str] = None
+
+
+class LGUHeatmapRequest(BaseModel):
+    """
+    Bounding-box export for a given LGU (or any admin-area bounding box).
+
+    Note: we don't store an LGU entity in the DB yet; this request is purely geometric.
+    """
+
+    min_latitude: float = Field(..., ge=-90, le=90)
+    min_longitude: float = Field(..., ge=-180, le=180)
+    max_latitude: float = Field(..., ge=-90, le=90)
+    max_longitude: float = Field(..., ge=-180, le=180)
+
+    # Grid cell size in meters (approx; for lat/lon conversion we use a local approximation).
+    grid_cell_size_meters: float = Field(default=250.0, gt=0)
+
+    # Only verified obstacles should influence “inaccessibility” heatmaps.
+    only_verified: bool = True
 
 
 # ML — path surface classification (MobileNetV3)
