@@ -15,6 +15,7 @@ class _MapPage extends State<MapPage> {
 
   LatLng? pointA;
   LatLng? pointB;
+  List<Polyline> routeLines = [];
 
   // === | CAMPUS LANDMARK DATABASE | ===
   // PURPOSE: Maps the User's Input String to Actual Coordinates
@@ -33,6 +34,17 @@ class _MapPage extends State<MapPage> {
       // PURPOSE: Normalize input to lowercase to match the keys in our map
       pointA = uplbLandmarks[_pointAController.text.toLowerCase().trim()];
       pointB = uplbLandmarks[_pointBController.text.toLowerCase().trim()];
+
+      // PURPOSE: Create a Polyline Only if Both Points Exist
+      if (pointA != null && pointB != null) {
+        routeLines = [
+          Polyline(
+            points: [pointA!, pointB!],
+            color: Colors.blue[800]!,
+            strokeWidth: 4.0,
+          ),
+        ];
+      } else { routeLines = []; }
     });
 
     if (pointA == null || pointB == null) {
@@ -60,6 +72,11 @@ class _MapPage extends State<MapPage> {
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.pathag.app',
+              ),
+
+              // == | POLYLINE (ROUTE) | ==
+              PolylineLayer(
+                polylines: routeLines 
               ),
 
               // == | MARKER | ==
@@ -128,7 +145,7 @@ class _MapPage extends State<MapPage> {
             ),
           ),
         ], // -- end of search ui --
-        
+
       ),
     );
   }
