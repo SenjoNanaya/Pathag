@@ -16,7 +16,7 @@ class Pathag extends StatelessWidget {
     return MaterialApp(
       title: 'Pathag: A People-Centric Navigation',
       theme: ThemeData(
-        fontFamily: 'serif',
+        fontFamily: 'Helvetica',
         primaryColor: Colors.blue[800]
       ),
       initialRoute: '/',
@@ -24,8 +24,8 @@ class Pathag extends StatelessWidget {
         '/start-page': (context) => const StartPage(),
         '/navigation': (context) => const MapPage()
       },
-      //home: const StartPage()
-      home: const MapPage()
+      home: const StartPage()
+      //home: const MapPage()
       //home: const MapTest()
     );
   }
