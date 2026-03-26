@@ -18,10 +18,29 @@ class _ProfilePage extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: const Center(
-        child: Text("ProfilePage, ano tara?"),
-      ),
+      body: _buildBody(),
       bottomNavigationBar: const CustomNavBar(selectedIndex: 0)
+    );
+  }
+
+  Widget _buildBody(){
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal:0),
+      child: Column(
+        children: [
+          _buildProfileHeader()
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal:30),
+      decoration: BoxDecoration(color: Colors.blue[800]),
+      child: Text("ProfilePage, ano tara?")
     );
   }
 }
