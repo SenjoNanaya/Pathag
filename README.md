@@ -36,6 +36,11 @@ Note: `auth` and `users` route modules are currently scaffolds.
 - Temporary obstacle influence expires after `TEMP_OBSTACLE_TTL_HOURS`.
 - Image classification responses are advisory (`eligible_for_live_map=false`) until verified.
 
+### Naming and conventions
+
+- Keep naming style in `snake_case` where applicable.
+- Keep modular separation across frontend, backend, and database concerns.
+
 ## Local setup
 
 1. Create and activate virtual environment:
@@ -162,3 +167,4 @@ Notes:
 ## Flutter prototype
 
 `flutter_app/` contains a prototype client that can call routing and obstacle-related backend endpoints.
+Adjust backend base URL in `flutter_app/lib/screen/map_page.dart` as needed.
