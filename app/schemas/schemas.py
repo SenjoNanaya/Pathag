@@ -136,7 +136,10 @@ class RouteResponse(BaseModel):
 
 # Obstacle Schemas
 class ObstacleReportCreate(BaseModel):
-    reporter_id: Optional[int] = None
+    reporter_id: Optional[int] = Field(
+        default=None,
+        description="Optional logged-in user; omit for anonymous reports (DB column is nullable).",
+    )
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     obstacle_type: ObstacleType

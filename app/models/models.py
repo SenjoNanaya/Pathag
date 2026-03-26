@@ -161,8 +161,8 @@ class ObstacleReport(Base):
     is_verified = Column(Boolean, default=False)
     is_resolved = Column(Boolean, default=False)
     
-    # Reporter
-    reporter_id = Column(Integer, ForeignKey("users.id"))
+    # Reporter (nullable: anonymous / app users without accounts)
+    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     reporter = relationship("User", back_populates="obstacle_reports")
     
     # Associated path segment

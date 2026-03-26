@@ -50,7 +50,7 @@ class _ReportPage extends State<ReportPage> {
     'physci': [14.1648, 121.2420],
     'main lib': [14.1653, 121.2400],
     'student union': [14.1645, 121.2440],
-    'raymundo gate': [14.1610, 121.2450],
+    'raymundo gate': [14.168009836121477, 121.24160711067458],
   };
 
   @override
