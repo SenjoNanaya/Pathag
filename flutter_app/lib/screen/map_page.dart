@@ -10,6 +10,9 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPage extends State<MapPage> {
+  // PURPOSE: Track which Page is Active
+  int _selectedIndex = 1;
+
   final TextEditingController _pointAController = TextEditingController();
   final TextEditingController _pointBController = TextEditingController();
 
@@ -58,7 +61,7 @@ class _MapPage extends State<MapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pathag Search')),
+      //appBar: AppBar(title: const Text('Pathag Search')),
       body: Stack(
         children: [
 
@@ -69,17 +72,19 @@ class _MapPage extends State<MapPage> {
               initialZoom: 16,
             ),
             children: [
+
+              // = | MAP NAVIGATOR | =
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.pathag.app',
               ),
 
-              // == | POLYLINE (ROUTE) | ==
+              // = | POLYLINE (ROUTE) | =
               PolylineLayer(
                 polylines: routeLines 
               ),
 
-              // == | MARKER | ==
+              // = | MARKER | =
               MarkerLayer(
                 markers: [
                   if (pointA != null)
@@ -98,8 +103,70 @@ class _MapPage extends State<MapPage> {
           ),
 
           // == | SEARCH UI | ==
-          Positioned(
-            top: 20,
+          _createSearchUI()
+        ], 
+      ),
+      
+      // === | NAVIGATION BUTTON BAR | ===
+      bottomNavigationBar: _createFloatingButtonBar(),
+    );
+  }
+
+  Widget _createFloatingButtonBar() {
+    return BottomAppBar(
+      color: Colors.white,
+      elevation: 25,
+      padding: EdgeInsets.zero,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildNavButton(Icons.person, "PROFILE", 0, () {
+            setState(() => _selectedIndex = 0);
+          }),
+          _buildNavButton(Icons.map, "MAP", 1, () {
+            setState(() => _selectedIndex = 1);
+          }),
+          _buildNavButton(Icons.report_gmailerrorred, "REPORT", 2, () {
+            setState(() => _selectedIndex = 2);
+          }),
+        ],
+      ),
+    );
+  }
+
+  // PURPOSE: Helper Widget - Floating Bar Buttons
+  Widget _buildNavButton(IconData icon, String label, int index, VoidCallback onTap) {
+    // CHANGE: Check if this specific button is the one currently active
+    bool active = _selectedIndex == index; 
+    final Color itemColor = active ? Colors.blue[800]! : Colors.grey[600]!;
+    
+    return Expanded( 
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8), 
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: itemColor, size: 28),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: itemColor,
+                  fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _createSearchUI() {
+      return Positioned(
+            top: 50,
             left: 15,
             right: 15,
             child: Card(
@@ -143,10 +210,6 @@ class _MapPage extends State<MapPage> {
                 ),
               ),
             ),
-          ),
-        ], // -- end of search ui --
-
-      ),
-    );
-  }
+          );
+    }
 }

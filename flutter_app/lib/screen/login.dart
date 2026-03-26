@@ -18,15 +18,15 @@ class _LoginPage extends State<LoginPage> {
   @override
   Widget build (BuildContext context){
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Pathag Map'
-        ),
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context), 
-          icon: const Icon(Icons.arrow_back_ios_new_outlined)
-        ),
-      ),
+      // appBar: AppBar(
+      //   title: const Text(
+      //     'Pathag Map'
+      //   ),
+      //   leading: IconButton(
+      //     onPressed: () => Navigator.pop(context), 
+      //     icon: const Icon(Icons.arrow_back_ios_new_outlined)
+      //   ),
+      // ),
       body: _buildBody()
     );
   }
