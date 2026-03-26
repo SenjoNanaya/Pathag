@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../screen/map_page.dart';
+import 'map_page.dart';
 import '../screen/signup.dart';
 
 class LoginPage extends StatefulWidget {
@@ -18,15 +18,15 @@ class _LoginPage extends State<LoginPage> {
   @override
   Widget build (BuildContext context){
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Pathag Map'
-        ),
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context), 
-          icon: const Icon(Icons.arrow_back_ios_new_outlined)
-        ),
-      ),
+      // appBar: AppBar(
+      //   title: const Text(
+      //     'Pathag Map'
+      //   ),
+      //   leading: IconButton(
+      //     onPressed: () => Navigator.pop(context), 
+      //     icon: const Icon(Icons.arrow_back_ios_new_outlined)
+      //   ),
+      // ),
       body: _buildBody()
     );
   }
@@ -126,7 +126,6 @@ class _LoginPage extends State<LoginPage> {
                 height: 55,
                 child: ElevatedButton(
                   onPressed: () {
-                    // 5. Trigger validation logic
                     if (_formKey.currentState!.validate()) {
                       debugPrint("Logging in with $email");
                       Navigator.push(context, MaterialPageRoute(builder: (context) => MapPage()));
