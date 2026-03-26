@@ -15,14 +15,6 @@ class _ProfilePage extends State<ProfilePage> {
     super.initState();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _buildBody(),
-      bottomNavigationBar: const CustomNavBar(selectedIndex: 0)
-    );
-  }
-
   Widget _buildBody(){
     return Container(
       width: double.infinity,
@@ -41,6 +33,14 @@ class _ProfilePage extends State<ProfilePage> {
       padding: const EdgeInsets.symmetric(horizontal:30),
       decoration: BoxDecoration(color: Colors.blue[800]),
       child: Text("ProfilePage, ano tara?")
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _buildBody(),
+      bottomNavigationBar: const CustomNavBar(selectedIndex: 0)
     );
   }
 }
