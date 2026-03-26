@@ -58,6 +58,23 @@ def build_mobilenet_v3_obstacle_classifier(
     return model
 
 
+def build_mobilenet_v3_binary_classifier(
+    *,
+    pretrained_backbone: bool = True,
+) -> nn.Module:
+    """
+    Build MobileNetV3-small with a 2-class classifier head.
+    """
+    weights = MobileNet_V3_Small_Weights.IMAGENET1K_V1 if pretrained_backbone else None
+    model = mobilenet_v3_small(weights=weights)
+    last_linear = model.classifier[3]
+    if not isinstance(last_linear, nn.Linear):
+        raise RuntimeError("Unexpected MobileNetV3 classifier layout in torchvision.")
+    in_features = last_linear.in_features
+    model.classifier[3] = nn.Linear(in_features, 2)
+    return model
+
+
 def save_checkpoint(model: nn.Module, path: str) -> None:
     torch.save(model.state_dict(), path)
 

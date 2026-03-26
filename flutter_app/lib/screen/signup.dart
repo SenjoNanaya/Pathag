@@ -104,7 +104,7 @@ class _SignUpPage extends State<SignUpPage> {
 
             // === | REGION FIELD | ===
             DropdownButtonFormField<String>(
-              value: _selectedRegion, // current selected value
+              initialValue: _selectedRegion, // current selected value
               items: _regions.map((weather) {
                 return DropdownMenuItem<String>(
                   value: weather,
@@ -134,7 +134,7 @@ class _SignUpPage extends State<SignUpPage> {
                 onPressed: () {
                   // 5. Trigger validation logic
                   if (_formKey.currentState!.validate()) {
-                    print("Logging in with $email");
+                    debugPrint("Logging in with $email");
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => MapPage()),

@@ -76,6 +76,7 @@ class _MapPage extends State<MapPage> {
 
     try {
       final route = await _calculateRoute(pointA!, pointB!);
+      if (!mounted) return;
       setState(() {
         routeLines = [
           Polyline(
@@ -86,6 +87,7 @@ class _MapPage extends State<MapPage> {
         ];
       });
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Route calculation failed: $e")),
       );
@@ -158,7 +160,7 @@ class _MapPage extends State<MapPage> {
     final base64Image = base64Encode(bytes);
 
     final wsUrl =
-        httpBaseUrl.replaceFirst('http', 'ws') + '/api/v1/realtime/obstacles/stream';
+        "${httpBaseUrl.replaceFirst('http', 'ws')}/api/v1/realtime/obstacles/stream";
     final wsUri = Uri.parse(wsUrl);
 
     final completer = Completer<Map<String, dynamic>>();
@@ -194,6 +196,7 @@ class _MapPage extends State<MapPage> {
       final suggestedReportKind =
           (classification['suggested_report_kind'] as String?) ?? 'obstacle';
       if (suggestedReportKind == 'none') {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Verifiers suggest no report; skipping.")),
         );
@@ -232,6 +235,7 @@ class _MapPage extends State<MapPage> {
       }
 
       final route = await _calculateRoute(pointA!, pointB!);
+      if (!mounted) return;
       setState(() {
         routeLines = [
           Polyline(
@@ -249,6 +253,7 @@ class _MapPage extends State<MapPage> {
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Realtime flow failed: $e")),
       );
