@@ -38,6 +38,29 @@ class ObstacleType(str, enum.Enum):
     NO = "no"
 
 
+class ReportKind(str, enum.Enum):
+    OBSTACLE = "obstacle"
+    SURFACE_PROBLEM = "surface_problem"
+    ENVIRONMENTAL = "environmental"
+
+
+class ObstacleSubtype(str, enum.Enum):
+    PARKED_VEHICLE = "parked_vehicle"
+    VENDOR_STALL = "vendor_stall"
+    CONSTRUCTION = "construction"
+    FLOODING = "flooding"
+    BROKEN_PAVEMENT = "broken_pavement"
+    UNEVEN_SURFACE = "uneven_surface"
+    MISSING_CURB_CUT = "missing_curb_cut"
+    STAIRS_ONLY = "stairs_only"
+    OTHER = "other"
+
+
+class SubtypeSource(str, enum.Enum):
+    USER = "user"
+    ML_SUGGESTED = "ml_suggested"
+
+
 class User(Base):
     __tablename__ = "users"
     
@@ -108,6 +131,9 @@ class ObstacleReport(Base):
     
     # Obstacle details
     obstacle_type = Column(Enum(ObstacleType), nullable=False)
+    report_kind = Column(Enum(ReportKind), nullable=False, default=ReportKind.OBSTACLE)
+    report_subtype = Column(Enum(ObstacleSubtype), nullable=False, default=ObstacleSubtype.OTHER)
+    subtype_source = Column(Enum(SubtypeSource), nullable=False, default=SubtypeSource.USER)
     description = Column(Text)
     severity = Column(Integer, default=3)  # 1 (minor) to 5 (severe)
     is_temporary = Column(Boolean, default=True)

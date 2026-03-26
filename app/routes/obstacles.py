@@ -14,7 +14,9 @@ from geoalchemy2.elements import WKTElement
 from app.config import settings
 from app.database import get_db
 from app.models.models import (
+    ObstacleSubtype,
     ObstacleReport,
+    SubtypeSource,
     ObstacleType,
     ObstacleVerification,
 )
@@ -36,6 +38,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _suggest_report_subtype(
+    *,
+    suggested_report_kind: str,
+    obstacle_type: str,
+) -> Optional[str]:
+    # Lightweight defaults until a dedicated subtype model is available.
+    if suggested_report_kind == "surface_problem":
+        return ObstacleSubtype.BROKEN_PAVEMENT.value
+    if suggested_report_kind == "obstacle" and obstacle_type == ObstacleType.YES.value:
+        return ObstacleSubtype.PARKED_VEHICLE.value
+    return None
+
+
 def _wkt_point(longitude: float, latitude: float) -> WKTElement:
     # geoalchemy2 expects WKTElement for geometry columns.
     return WKTElement(f"POINT({longitude} {latitude})", srid=4326)
@@ -55,6 +70,9 @@ def create_obstacle_report(
         latitude=payload.latitude,
         longitude=payload.longitude,
         obstacle_type=payload.obstacle_type,
+        report_kind=payload.report_kind,
+        report_subtype=payload.report_subtype,
+        subtype_source=payload.subtype_source,
         description=payload.description,
         severity=payload.severity,
         is_temporary=payload.is_temporary,
@@ -217,6 +235,11 @@ async def realtime_obstacle_stream(websocket: WebSocket) -> None:
                 suggested_report_kind = "none"
                 suggested_obstacle_type = None
 
+            suggested_report_subtype = _suggest_report_subtype(
+                suggested_report_kind=suggested_report_kind,
+                obstacle_type=raw["obstacle_type"],
+            )
+
             response: dict[str, object] = {
                 "obstacle_type": raw["obstacle_type"],
                 "confidence": obstacle_confidence,
@@ -233,6 +256,8 @@ async def realtime_obstacle_stream(websocket: WebSocket) -> None:
                 "surface_problem_verifier_checkpoint_loaded": surface_raw["checkpoint_loaded"],
                 "suggested_report_kind": suggested_report_kind,
                 "suggested_obstacle_type": suggested_obstacle_type,
+                "suggested_report_subtype": suggested_report_subtype,
+                "suggested_subtype_source": SubtypeSource.ML_SUGGESTED.value,
                 "latitude": data.get("latitude"),
                 "longitude": data.get("longitude"),
             }

@@ -78,15 +78,23 @@ def export_lgu_heatmap(payload: LGUHeatmapRequest, db: Session = Depends(get_db)
     obstacles = db.query(ObstacleReport).filter(heatmap_filter).all()
 
     # Bin into grid cells.
-    bins: Dict[Tuple[int, int], Dict[str, float]] = {}
+    bins: Dict[Tuple[int, int], Dict[str, object]] = {}
     for obs in obstacles:
         i = int((obs.latitude - min_lat) / lat_step) if lat_step > 0 else 0
         j = int((obs.longitude - min_lon) / lon_step) if lon_step > 0 else 0
         key = (i, j)
         if key not in bins:
-            bins[key] = {"severity_sum": 0.0, "count": 0}
-        bins[key]["severity_sum"] += float(obs.severity)
-        bins[key]["count"] += 1
+            bins[key] = {"severity_sum": 0.0, "count": 0, "subtype_counts": {}}
+        bins[key]["severity_sum"] = float(bins[key]["severity_sum"]) + float(obs.severity)
+        bins[key]["count"] = int(bins[key]["count"]) + 1
+        subtype_counts = bins[key]["subtype_counts"]
+        if isinstance(subtype_counts, dict):
+            subtype = (
+                obs.report_subtype.value
+                if getattr(obs, "report_subtype", None) is not None
+                else "other"
+            )
+            subtype_counts[subtype] = int(subtype_counts.get(subtype, 0)) + 1
 
     heatmap_points: List[HeatmapPoint] = []
     for (i, j), agg in bins.items():
@@ -95,12 +103,14 @@ def export_lgu_heatmap(payload: LGUHeatmapRequest, db: Session = Depends(get_db)
             continue
         cell_center_lat = min_lat + (i + 0.5) * lat_step
         cell_center_lon = min_lon + (j + 0.5) * lon_step
+        subtype_counts = agg.get("subtype_counts", {})
         heatmap_points.append(
             HeatmapPoint(
                 latitude=cell_center_lat,
                 longitude=cell_center_lon,
-                severity=round(agg["severity_sum"] / count, 2),
+                severity=round(float(agg["severity_sum"]) / count, 2),
                 obstacle_count=count,
+                subtype_counts=subtype_counts if isinstance(subtype_counts, dict) else {},
             )
         )
 

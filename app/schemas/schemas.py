@@ -25,6 +25,29 @@ class ObstacleType(str, Enum):
     NO = "no"
 
 
+class ReportKind(str, Enum):
+    OBSTACLE = "obstacle"
+    SURFACE_PROBLEM = "surface_problem"
+    ENVIRONMENTAL = "environmental"
+
+
+class ObstacleSubtype(str, Enum):
+    PARKED_VEHICLE = "parked_vehicle"
+    VENDOR_STALL = "vendor_stall"
+    CONSTRUCTION = "construction"
+    FLOODING = "flooding"
+    BROKEN_PAVEMENT = "broken_pavement"
+    UNEVEN_SURFACE = "uneven_surface"
+    MISSING_CURB_CUT = "missing_curb_cut"
+    STAIRS_ONLY = "stairs_only"
+    OTHER = "other"
+
+
+class SubtypeSource(str, Enum):
+    USER = "user"
+    ML_SUGGESTED = "ml_suggested"
+
+
 # User Schemas
 class UserCreate(BaseModel):
     email: EmailStr
@@ -104,6 +127,9 @@ class ObstacleReportCreate(BaseModel):
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     obstacle_type: ObstacleType
+    report_kind: ReportKind = ReportKind.OBSTACLE
+    report_subtype: ObstacleSubtype = ObstacleSubtype.OTHER
+    subtype_source: SubtypeSource = SubtypeSource.USER
     description: Optional[str] = None
     severity: int = Field(default=3, ge=1, le=5)
     is_temporary: bool = True
@@ -123,6 +149,9 @@ class ObstacleReportResponse(BaseModel):
     latitude: float
     longitude: float
     obstacle_type: ObstacleType
+    report_kind: ReportKind
+    report_subtype: ObstacleSubtype
+    subtype_source: SubtypeSource
     description: Optional[str]
     severity: int
     is_temporary: bool
@@ -150,6 +179,7 @@ class HeatmapPoint(BaseModel):
     longitude: float
     severity: float
     obstacle_count: int
+    subtype_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class LGUReportResponse(BaseModel):

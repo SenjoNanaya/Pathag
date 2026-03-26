@@ -11,7 +11,14 @@ from geoalchemy2.elements import WKTElement
 
 import httpx
 
-from app.models.models import PathSegment, ObstacleReport, User, PathCondition, ObstacleType
+from app.models.models import (
+    ObstacleReport,
+    ObstacleSubtype,
+    ObstacleType,
+    PathCondition,
+    PathSegment,
+    User,
+)
 from app.config import settings
 from app.schemas.schemas import RouteRequest, RouteResponse, RouteStep, Coordinate
 
@@ -252,6 +259,28 @@ class RoutingService:
 
         return nearby
     
+    def _subtype_penalty_multiplier(self, subtype: Optional[ObstacleSubtype]) -> float:
+        if subtype is None:
+            return 1.0
+        if subtype in (
+            ObstacleSubtype.FLOODING,
+            ObstacleSubtype.STAIRS_ONLY,
+            ObstacleSubtype.MISSING_CURB_CUT,
+        ):
+            return 1.8
+        if subtype in (
+            ObstacleSubtype.PARKED_VEHICLE,
+            ObstacleSubtype.VENDOR_STALL,
+            ObstacleSubtype.CONSTRUCTION,
+        ):
+            return 1.3
+        if subtype in (
+            ObstacleSubtype.BROKEN_PAVEMENT,
+            ObstacleSubtype.UNEVEN_SURFACE,
+        ):
+            return 1.1
+        return 1.0
+
     def _calculate_accessibility_score(
         self,
         coordinates: List[List[float]],
@@ -274,7 +303,9 @@ class RoutingService:
         # Penalty for obstacles
         for obstacle in obstacles:
             # Base penalty by severity (1-5)
-            penalty = obstacle.severity * 0.05
+            base_penalty = obstacle.severity * 0.05
+            multiplier = self._subtype_penalty_multiplier(obstacle.report_subtype)
+            penalty = base_penalty * multiplier
             
             # Binary obstacle labels no longer encode obstacle subtype severity hints.
             # Keep a uniform penalty and rely on report severity + verification status.
@@ -441,12 +472,17 @@ class RoutingService:
         
         # Check for generic obstacle warnings in binary obstacle mode.
         for obs in obstacles:
+            subtype_label = (
+                obs.report_subtype.value.replace("_", " ")
+                if obs.report_subtype is not None
+                else "obstacle"
+            )
             if obs.obstacle_type == ObstacleType.YES:
-                warnings.append("Route contains reported obstacle(s)")
+                warnings.append(f"Route contains reported {subtype_label}")
             
             # High severity obstacles
             if obs.severity >= 4:
-                warnings.append(f"High-severity obstacle: {obs.obstacle_type.value}")
+                warnings.append(f"High-severity {subtype_label} ahead")
         
         # Limit warnings
         if len(warnings) > 5:

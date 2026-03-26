@@ -21,6 +21,7 @@ Base URL: `http://localhost:8000`
 - `POST /api/v1/routes/calculate`
   - accessibility-aware route scoring (prototype)
 - `POST /api/v1/obstacles/reports`
+  - accepts `report_kind`, `report_subtype`, and `subtype_source`
 - `POST /api/v1/obstacles/reports/{report_id}/verify`
 - `POST /api/v1/obstacles/reports/{report_id}/resolve`
 - `WS /api/v1/realtime/obstacles/stream`
@@ -35,6 +36,25 @@ Note: `auth` and `users` route modules are currently scaffolds.
 - Obstacle reports influence route scoring only after verification threshold is met.
 - Temporary obstacle influence expires after `TEMP_OBSTACLE_TTL_HOURS`.
 - Image classification responses are advisory (`eligible_for_live_map=false`) until verified.
+
+## Quick DB migration for subtype fields
+
+Before using subtype fields in `/api/v1/obstacles/reports`, run:
+
+```bash
+psql <connection_string> -f db_migration_add_subtypes.sql
+```
+
+Current subtype list:
+- `parked_vehicle`
+- `vendor_stall`
+- `construction`
+- `flooding`
+- `broken_pavement`
+- `uneven_surface`
+- `missing_curb_cut`
+- `stairs_only`
+- `other`
 
 ### Naming and conventions
 
