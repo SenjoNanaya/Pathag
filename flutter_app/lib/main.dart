@@ -23,8 +23,8 @@ class Pathag extends StatelessWidget {
         '/start-page': (context) => const StartPage(),
         '/navigation': (context) => const MapPage()
       },
-      //home: const StartPage()
-      home: const MapPage()
+      home: const StartPage()
+      //home: const MapPage()
     );
   }
 }
