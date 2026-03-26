@@ -49,15 +49,21 @@ def _write_manifest_csv(manifest_path: Path, rows: list[tuple[str, str]]) -> Non
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Pseudo-label binary 'present' images into binary obstacle_dataset/train "
+            "Pseudo-label binary 'yes' images into binary obstacle_dataset/train "
             "using the current obstacle classifier and a confidence threshold."
         )
     )
     parser.add_argument(
-        "--present_dir",
+        "--yes_dir",
         type=Path,
         default=Path("obstacle_verifier_dataset/train/yes"),
         help="Directory containing images labeled as 'yes'.",
+    )
+    parser.add_argument(
+        "--present_dir",
+        type=Path,
+        default=None,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--output_train_dir",
@@ -101,8 +107,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if not args.present_dir.exists():
-        raise SystemExit(f"present_dir does not exist: {args.present_dir}")
+    input_yes_dir = args.present_dir or args.yes_dir
+    if not input_yes_dir.exists():
+        raise SystemExit(f"yes_dir does not exist: {input_yes_dir}")
     if not args.output_train_dir.exists():
         raise SystemExit(f"output_train_dir does not exist: {args.output_train_dir}")
     if not args.checkpoint.exists():
@@ -120,11 +127,11 @@ def main() -> None:
             f"Required: {sorted(required_classes)}"
         )
 
-    images = _iter_images(args.present_dir)
+    images = _iter_images(input_yes_dir)
     if args.limit > 0:
         images = images[: args.limit]
     if not images:
-        raise SystemExit(f"No supported image files found under: {args.present_dir}")
+        raise SystemExit(f"No supported image files found under: {input_yes_dir}")
 
     classifier = ObstacleImageClassifier(
         device=args.device,

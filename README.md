@@ -1,112 +1,190 @@
-# Pathag (Backend + ML Prototype)
+# Pathag (Backend + ML + Flutter Prototype)
 
-Pathag is a people-centric navigation backend prototype focused on **pedestrian accessibility**. This repository currently contains:
+Pathag is a people-centric navigation prototype focused on pedestrian accessibility.
 
-- A **FastAPI** backend (REST API)
-- **PostgreSQL + PostGIS** data models for users, path segments, obstacle reports, validations, and cached routes
-- A **MobileNetV3 (PyTorch)** image classifier that predicts sidewalk/path surface condition
-- A **prototype routing service** that generates demo routes and computes an accessibility score using nearby obstacle reports
+This repository currently includes:
 
-## What’s implemented vs intended
+- FastAPI backend with REST and realtime websocket endpoints
+- PostgreSQL + PostGIS data models for users, routes, and obstacle reports
+- MobileNetV3-based ML components for:
+  - 6-class path condition classification
+  - binary obstacle classification
+  - binary yes/no verifier gates
+- `flutter_app/` prototype client
 
-- **Implemented**
-  - Image classification endpoint that returns **transparent probabilities and narrative reasons**
-  - Route calculation endpoint (prototype): returns coordinates, steps, warnings, accessibility score, and narrative reasons
-  - Auth endpoints (register/login) using JWT
-  - Verified-only + decay logic for temporary obstacle reports **when scoring routes**
-- **Not implemented yet (planned)**
-  - OpenRouteService (ORS) integration and a full weighted cost model based on real network routing
-  - Obstacle reporting + multi-user verification workflows (human-in-the-loop moderation endpoints)
-  - LGU “heatmaps of inaccessibility” exports
-  - Flutter mobile app (not part of this repo right now)
-
-## API overview
+## Current API surface
 
 Base URL: `http://localhost:8000`
 
-### ML
 - `POST /api/v1/ml/classify-image`
-  - Upload an image (`multipart/form-data` field: `file`)
-  - Returns both:
-    - path surface classification (`path_condition`, `confidence`, `probabilities`, `narrative_reasons`)
-    - obstacle classification (`obstacle_type`, `confidence`, `probabilities`, `narrative_reasons`)
-  - Note: Output is **not eligible for live map updates** without human verification
-
-### Auth
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-
-### Users
-- `GET /api/v1/users/me`
-- `PATCH /api/v1/users/me`
-
-### Routes (prototype)
+  - combined image classification (path + obstacle + obstruction gate)
 - `POST /api/v1/routes/calculate`
-  - Input: origin/destination, accessibility preferences, optional `walking_speed_mps`
-  - Output: coordinates + steps + warnings + `narrative_reasons`
+  - accessibility-aware route scoring (prototype)
+- `POST /api/v1/obstacles/reports`
+  - accepts `report_kind`, `report_subtype`, and `subtype_source`
+- `POST /api/v1/obstacles/reports/{report_id}/verify`
+- `POST /api/v1/obstacles/reports/{report_id}/resolve`
+- `WS /api/v1/realtime/obstacles/stream`
+  - returns obstacle classification and both verifier probabilities
+- `POST /api/v1/lgu/heatmap`
+  - grid heatmap export for a bbox
 
-## Privacy + safety rules enforced in code
+Note: `auth` and `users` route modules are currently scaffolds.
 
-- **Verified-only routing influence**: obstacle reports must be `is_verified=True` to affect route scoring.
-- **Temporary obstacle decay**: temporary reports expire after `TEMP_OBSTACLE_TTL_HOURS` (default 72) for routing influence.
-- **No sensitive logging for uploads**: the ML route avoids logging identifiers alongside image payloads.
+## Safety and data quality
+
+- Obstacle reports influence route scoring only after verification threshold is met.
+- Temporary obstacle influence expires after `TEMP_OBSTACLE_TTL_HOURS`.
+- Image classification responses are advisory (`eligible_for_live_map=false`) until verified.
+
+## Quick DB migration for subtype fields
+
+Before using subtype fields in `/api/v1/obstacles/reports`, run:
+
+```bash
+psql <connection_string> -f db_migration_add_subtypes.sql
+```
+
+Current subtype list:
+- `parked_vehicle`
+- `vendor_stall`
+- `construction`
+- `flooding`
+- `broken_pavement`
+- `uneven_surface`
+- `missing_curb_cut`
+- `stairs_only`
+- `other`
+
+### Naming and conventions
+
+- Keep naming style in `snake_case` where applicable.
+- Keep modular separation across frontend, backend, and database concerns.
 
 ## Local setup
 
-### 1) Create and activate a virtual environment
-
-PowerShell:
+1. Create and activate virtual environment:
 
 ```bash
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 2) Install dependencies
+2. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3) Configure environment variables (optional but recommended)
-
-Create a `.env` file in the project root (same folder as `main.py`):
+3. Create `.env` (optional, defaults exist in `app/config.py`):
 
 ```bash
 DATABASE_URL=postgresql://pathag:pathag@localhost:5432/pathag
 SECRET_KEY=change-me
+DEBUG=true
+
 ORS_API_KEY=
+ORS_BASE_URL=https://api.openrouteservice.org/v2
+ORS_PROFILE=foot-walking
+ORS_ALTERNATIVES=3
+ORS_REQUEST_TIMEOUT_SECONDS=30
+
+TEMP_OBSTACLE_TTL_HOURS=72
+OBSTACLE_VERIFICATION_THRESHOLD=2
+OBSTACLE_ROUTE_BUFFER_METERS=50
+
 ML_DEVICE=cpu
 ML_CHECKPOINT_PATH=
-TEMP_OBSTACLE_TTL_HOURS=72
-DEBUG=true
+OBSTACLE_ML_CHECKPOINT_PATH=
+OBSTRUCTION_VERIFIER_ML_CHECKPOINT_PATH=
+SURFACE_PROBLEM_VERIFIER_ML_CHECKPOINT_PATH=
+OBSTRUCTION_GATE_THRESHOLD=0.5
 ```
 
-### 4) Run the API
+4. Run backend:
 
 ```bash
 py main.py
 ```
 
-Then open the interactive docs:
+Swagger: `http://localhost:8000/docs`
 
-- Swagger UI: `http://localhost:8000/docs`
+## ML training scripts
 
-## Repository structure (current)
+All scripts are under `ml_service/`.
 
-- `main.py`: FastAPI app entrypoint
-- `app/`
-  - `config.py`: settings (env-driven)
-  - `database.py`: SQLAlchemy engine/session
-  - `models/models.py`: PostGIS + SQLAlchemy models
-  - `routes/`: API endpoints (ml/auth/users/routes)
-  - `services/`: routing + ML classifier loader
-  - `schemas/schemas.py`: Pydantic request/response models
-  - `utils/`: auth utilities (JWT/password hashing)
-- `ml_service/`: training/inference code for MobileNetV3 path-condition classifier
-- `sidewalk_dataset/`: placeholder dataset folders (currently `.gitkeep` only)
+### Path condition model (6 classes)
 
-## Notes / limitations
+Expected class folders:
 
-- The routing service is still a **prototype**; it does not yet call ORS and does not yet compute true network paths.
-- Database migrations (Alembic) are not wired up yet in this repo.
+- `smooth`
+- `cracked`
+- `uneven`
+- `obstructed`
+- `no_sidewalk`
+- `under_construction`
+
+Train:
+
+```bash
+python ml_service/train.py --train_dir <path_dataset/train> --val_dir <path_dataset/val>
+```
+
+### Obstacle model (binary yes/no)
+
+Expected class folders:
+
+- `yes`
+- `no`
+
+Train:
+
+```bash
+python ml_service/obstacle_train.py --train_dir <obstacle_dataset/train> --val_dir <obstacle_dataset/val>
+```
+
+### Binary verifier model (yes/no)
+
+Expected class folders:
+
+- `yes`
+- `no`
+
+Train:
+
+```bash
+python ml_service/binary_verifier_train.py --train_dir <verifier_dataset/train> --val_dir <verifier_dataset/val>
+```
+
+## Project Sidewalk dataset preparation
+
+### Surface-problem verifier dataset
+
+Builds `yes` / `no` folders:
+
+```bash
+python ml_service/prepare_projectsidewalk_path_dataset.py --output_dir surface_problem_verifier_dataset
+```
+
+### Obstacle verifier dataset
+
+Builds `yes` / `no` folders:
+
+```bash
+python ml_service/prepare_projectsidewalk_obstacle_dataset.py --output_dir obstacle_verifier_dataset
+```
+
+Optional filter to keep only positives:
+
+```bash
+python ml_service/prepare_projectsidewalk_obstacle_dataset.py --output_dir obstacle_verifier_dataset --only_yes
+```
+
+Notes:
+
+- This script now emits the unified binary schema directly (`yes` / `no`).
+
+## Flutter prototype
+
+`flutter_app/` contains a prototype client that can call routing and obstacle-related backend endpoints.
+Adjust backend base URL in `flutter_app/lib/screen/map_page.dart` as needed.

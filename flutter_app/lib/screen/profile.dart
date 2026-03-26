@@ -10,7 +10,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePage extends State<ProfilePage> {
-
   // PURPOSE: Dummy Account - Mocking a User Data
   Map<String, dynamic> account = {
     "name": "Bab",
@@ -29,6 +28,60 @@ class _ProfilePage extends State<ProfilePage> {
         fontSize: 16,
         color: Colors.blue[800],
       ),
+    );
+  }
+
+  Widget _buildInfoCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.blue[800], size: 30),
+          const SizedBox(width: 15),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionTile(
+    IconData icon,
+    String title, {
+    bool isDestructive = false,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: isDestructive ? Colors.redAccent : Colors.blue[800]),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: isDestructive ? Colors.redAccent : Colors.black87,
+        ),
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+      onTap: () {},
     );
   }
 
@@ -140,19 +193,8 @@ class _ProfilePage extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: _buildBody()
-      ),
-      bottomNavigationBar: const CustomNavBar(selectedIndex: 0)
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
       body: _buildBody(),
-      bottomNavigationBar: const CustomNavBar(selectedIndex: 0)
+      bottomNavigationBar: CustomNavBar(selectedIndex: widget.currentIndex),
     );
   }
 }

@@ -1,0 +1,28 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# After push: Dashboard → New → Blueprint → connect repo (or `render blueprint apply`).
+#
+# Set secret env vars in the Render dashboard (DATABASE_URL, SECRET_KEY, ORS_API_KEY, …).
+
+services:
+  - type: web
+    name: pathag-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_SSL_REQUIRE
+        value: "true"
+      - key: ML_WARMUP_ON_STARTUP
+        value: "false"
+      - key: PUBLIC_API_BASE_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ORS_API_KEY
+        sync: false

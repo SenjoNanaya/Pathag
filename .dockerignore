@@ -1,0 +1,16 @@
+.git
+.github
+**/__pycache__
+**/*.pyc
+.venv
+venv
+.env
+.env.*
+uploads
+sidewalk_dataset
+obstacle_dataset
+flutter_app
+*.md
+.cursor
+mcps
+terminals
