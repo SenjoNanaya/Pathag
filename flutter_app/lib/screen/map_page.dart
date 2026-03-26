@@ -25,14 +25,15 @@ class _MapPage extends State<MapPage> {
   LatLng? pointB;
   List<Polyline> routeLines = [];
 
-  static const String httpBaseUrl = 'http://localhost:8000';
+  static String get _httpBaseUrl =>
+      Platform.isAndroid ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
 
   final Map<String, LatLng> uplbLandmarks = {
     'uplb gate': const LatLng(14.1675, 121.2431),
     'physci': const LatLng(14.1648, 121.2420),
     'main lib': const LatLng(14.1653, 121.2400),
     'student union': const LatLng(14.1645, 121.2440),
-    'raymundo gate': const LatLng(14.1610, 121.2450),
+    'raymundo gate': const LatLng(14.168009836121477, 121.24160711067458),
   };
 
   // === | NAVIGATION LOGIC | ===
@@ -73,40 +74,49 @@ class _MapPage extends State<MapPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Route Calculation Failed: $e")),
+          SnackBar(content: Text("Route calculation failed: $e")),
         );
       }
     }
   }
 
   Future<List<LatLng>> _calculateRoute(LatLng origin, LatLng destination) async {
-    final uri = Uri.parse('$httpBaseUrl/api/v1/routes/calculate');
+    final uri = Uri.parse('$_httpBaseUrl/api/v1/routes/calculate');
     final payload = {
       "origin": {"latitude": origin.latitude, "longitude": origin.longitude},
       "destination": {"latitude": destination.latitude, "longitude": destination.longitude},
     };
 
-    final client = HttpClient();
-    final req = await client.postUrl(uri);
-    req.headers.contentType = ContentType.json;
-    req.write(jsonEncode(payload));
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+    try {
+      final req = await client.postUrl(uri);
+      req.headers.contentType = ContentType.json;
+      req.write(jsonEncode(payload));
 
-    final resp = await req.close();
-    final body = await resp.transform(utf8.decoder).join();
-    client.close(force: true);
+      final resp = await req.close().timeout(const Duration(seconds: 20));
+      final body = await resp.transform(utf8.decoder).join();
 
-    if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      throw Exception('HTTP ${resp.statusCode}: $body');
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        throw Exception('HTTP ${resp.statusCode}: $body');
+      }
+
+      final data = jsonDecode(body) as Map<String, dynamic>;
+      final coords = (data['coordinates'] as List).cast<dynamic>();
+
+      return coords.map((p) {
+        final arr = (p as List).cast<dynamic>();
+        // Backend returns [Lon, Lat], LatLng needs [Lat, Lon]
+        return LatLng((arr[1] as num).toDouble(), (arr[0] as num).toDouble());
+      }).toList();
+    } on SocketException {
+      throw Exception(
+        'Cannot connect to backend at $_httpBaseUrl. Ensure FastAPI is running and reachable from this device.',
+      );
+    } on TimeoutException {
+      throw Exception('Backend request timed out. Check server/network and try again.');
+    } finally {
+      client.close(force: true);
     }
-
-    final data = jsonDecode(body) as Map<String, dynamic>;
-    final coords = (data['coordinates'] as List).cast<dynamic>();
-
-    return coords.map((p) {
-      final arr = (p as List).cast<dynamic>();
-      // Backend returns [Lon, Lat], LatLng needs [Lat, Lon]
-      return LatLng((arr[1] as num).toDouble(), (arr[0] as num).toDouble());
-    }).toList();
   }
 
   // === | UI COMPONENTS | ===
@@ -122,7 +132,7 @@ class _MapPage extends State<MapPage> {
           borderRadius: BorderRadius.circular(_isSearching ? 15 : 30),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),

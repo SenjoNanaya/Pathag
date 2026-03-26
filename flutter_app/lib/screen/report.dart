@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -14,6 +15,11 @@ class ReportPage extends StatefulWidget {
 
 class _ReportPage extends State<ReportPage> {
   final _formKey = GlobalKey<FormState>();
+  bool _isSubmitting = false;
+
+  // Android emulator cannot reach host machine via localhost.
+  static String get _httpBaseUrl =>
+      Platform.isAndroid ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
 
   String? selectedCategory;
   final TextEditingController _locationController = TextEditingController();
@@ -28,6 +34,14 @@ class _ReportPage extends State<ReportPage> {
     'No Sidewalk',
   ];
 
+  static const Map<String, List<double>> _uplbLandmarkCoords = {
+    'uplb gate': [14.1675, 121.2431],
+    'physci': [14.1648, 121.2420],
+    'main lib': [14.1653, 121.2400],
+    'student union': [14.1645, 121.2440],
+    'raymundo gate': [14.1610, 121.2450],
+  };
+
   Future<void> _pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.camera);
     if (pickedFile != null) {
@@ -37,17 +51,102 @@ class _ReportPage extends State<ReportPage> {
     }
   }
 
-  void _submitReport() {
+  Map<String, String> _mapCategoryToBackendFields(String category) {
+    switch (category) {
+      case 'Path Surface Problem':
+        return {
+          'report_kind': 'surface_problem',
+          'report_subtype': 'broken_pavement',
+        };
+      case 'No Sidewalk':
+        return {
+          'report_kind': 'environmental',
+          'report_subtype': 'other',
+        };
+      case 'Obstruction':
+      default:
+        return {
+          'report_kind': 'obstacle',
+          'report_subtype': 'parked_vehicle',
+        };
+    }
+  }
+
+  List<double> _resolveCoordinates(String rawLocation) {
+    final key = rawLocation.toLowerCase().trim();
+    return _uplbLandmarkCoords[key] ?? [14.1675, 121.2431];
+  }
+
+  Future<void> _submitReport() async {
     if (_formKey.currentState!.validate() && selectedCategory != null) {
-      // TODO: Logic to send to your Node.js/MongoDB backend
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Submitting Accessibility Report...')),
-      );
+      try {
+        setState(() => _isSubmitting = true);
+        final category = selectedCategory!;
+        final mapped = _mapCategoryToBackendFields(category);
+        final coords = _resolveCoordinates(_locationController.text);
+
+        final payload = {
+          'reporter_id': 1,
+          'latitude': coords[0],
+          'longitude': coords[1],
+          'obstacle_type': 'yes',
+          'report_kind': mapped['report_kind'],
+          'report_subtype': mapped['report_subtype'],
+          'subtype_source': 'user',
+          'description':
+              '${_locationController.text.trim()} | ${_commentController.text.trim()}',
+          'severity': 3,
+          'is_temporary': true,
+        };
+
+        final client = HttpClient();
+        final uri = Uri.parse('$_httpBaseUrl/api/v1/obstacles/reports');
+        final req = await client.postUrl(uri);
+        req.headers.contentType = ContentType.json;
+        req.write(jsonEncode(payload));
+
+        final resp = await req.close();
+        final body = await resp.transform(utf8.decoder).join();
+        client.close(force: true);
+
+        if (!mounted) return;
+        if (resp.statusCode >= 200 && resp.statusCode < 300) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Report submitted successfully.')),
+          );
+          _commentController.clear();
+          _locationController.clear();
+          setState(() {
+            selectedCategory = null;
+            _image = null;
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Submission failed (HTTP ${resp.statusCode}): $body')),
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit report: $e')),
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isSubmitting = false);
+        }
+      }
     } else if (selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a category')),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _locationController.dispose();
+    _commentController.dispose();
+    super.dispose();
   }
 
   Widget _sectionHeader(String text) {
@@ -209,7 +308,7 @@ class _ReportPage extends State<ReportPage> {
             width: double.infinity,
             height: 55,
             child: ElevatedButton(
-              onPressed: _submitReport,
+              onPressed: _isSubmitting ? null : _submitReport,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue[800],
                 elevation: 0,
@@ -230,67 +329,6 @@ class _ReportPage extends State<ReportPage> {
         ],
       )
     ); 
-  }
-
-  @override
-  void dispose() {
-    _latController.dispose();
-    _lonController.dispose();
-    _descController.dispose();
-    _reporterIdController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitReport() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-    setState(() => _isSubmitting = true);
-
-    try {
-      final uri = Uri.parse('$httpBaseUrl/api/v1/obstacles/reports');
-      final payload = {
-        "reporter_id": int.parse(_reporterIdController.text),
-        "latitude": double.parse(_latController.text),
-        "longitude": double.parse(_lonController.text),
-        "obstacle_type": "yes",
-        "report_kind": _selectedReportKind,
-        "report_subtype": _selectedSubtype,
-        "subtype_source": "user",
-        "description": _descController.text.trim().isEmpty ? null : _descController.text.trim(),
-        "severity": _severity,
-        "is_temporary": _isTemporary,
-      };
-
-      final client = HttpClient();
-      final req = await client.postUrl(uri);
-      req.headers.contentType = ContentType.json;
-      req.write(jsonEncode(payload));
-      final resp = await req.close();
-      final body = await resp.transform(utf8.decoder).join();
-      client.close(force: true);
-
-      if (!mounted) return;
-      if (resp.statusCode >= 200 && resp.statusCode < 300) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Report submitted successfully.")),
-        );
-        _descController.clear();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to submit report: HTTP ${resp.statusCode} $body")),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to submit report: $e")),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
   }
 
   @override
