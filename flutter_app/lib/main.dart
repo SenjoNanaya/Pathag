@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../screen/map_page.dart';
+import 'screen/map_page.dart';
 import '../screen/startpage.dart';
 
 
@@ -23,8 +23,8 @@ class Pathag extends StatelessWidget {
         '/start-page': (context) => const StartPage(),
         '/navigation': (context) => const MapPage()
       },
-      //home: const StartPage()
-      home: const MapPage()
+      home: const StartPage()
+      //home: const MapPage()
     );
   }
 }
