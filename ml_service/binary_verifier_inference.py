@@ -21,7 +21,7 @@ def _build_narrative_reasons(
     sorted_probs = sorted(probabilities.items(), key=lambda x: x[1], reverse=True)
     top2 = sorted_probs[:2]
     reasons.append(
-        "The verifier model predicts presence/absence with estimated probabilities: "
+        "The verifier model predicts yes/no labels with estimated probabilities: "
         + ", ".join(f"{name} ({p:.3f})" for name, p in top2)
         + "."
     )
@@ -38,10 +38,10 @@ def _build_narrative_reasons(
 
 class BinaryImageVerifier:
     """
-    MobileNetV3-small binary classifier (absent/present).
+    MobileNetV3-small binary classifier (no/yes).
 
     Expected output keys (used by `app/routes/obstacles.py`):
-    - present_probability: float in [0,1]
+    - yes_probability: float in [0,1]
     - checkpoint_loaded: bool
     """
 
@@ -91,8 +91,8 @@ class BinaryImageVerifier:
         top_class = class_names[best_idx]
         confidence = float(probs[best_idx].item())
 
-        # Convention: index 1 == "present".
-        present_probability = probabilities["present"]
+        # Convention: class label "yes" is used for positive probability.
+        yes_probability = probabilities["yes"]
 
         narrative_reasons = _build_narrative_reasons(
             probabilities=probabilities,
@@ -101,7 +101,7 @@ class BinaryImageVerifier:
         )
 
         return {
-            "present_probability": present_probability,
+            "yes_probability": yes_probability,
             "confidence": confidence,
             "probabilities": probabilities,
             "narrative_reasons": narrative_reasons,

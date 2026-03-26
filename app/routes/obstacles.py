@@ -200,14 +200,14 @@ async def realtime_obstacle_stream(websocket: WebSocket) -> None:
             obstacle_confidence = float(raw["confidence"])
             suggested_severity = max(1, min(5, int(round(obstacle_confidence * 5))))
 
-            obstruction_present_probability = float(obstruction_raw["present_probability"])
-            surface_problem_present_probability = float(surface_raw["present_probability"])
-            obstruction_present = obstruction_present_probability >= 0.5
-            surface_problem_present = surface_problem_present_probability >= 0.5
+            obstruction_yes_probability = float(obstruction_raw["yes_probability"])
+            surface_problem_yes_probability = float(surface_raw["yes_probability"])
+            obstruction_yes = obstruction_yes_probability >= 0.5
+            surface_problem_yes = surface_problem_yes_probability >= 0.5
 
             # Choose what kind of report the client should create (single action).
-            if obstruction_present or surface_problem_present:
-                if obstruction_present_probability >= surface_problem_present_probability:
+            if obstruction_yes or surface_problem_yes:
+                if obstruction_yes_probability >= surface_problem_yes_probability:
                     suggested_report_kind = "obstacle"
                     suggested_obstacle_type = raw["obstacle_type"]
                 else:
@@ -225,11 +225,11 @@ async def realtime_obstacle_stream(websocket: WebSocket) -> None:
                 "checkpoint_loaded": raw["checkpoint_loaded"],
                 "eligible_for_live_map": False,  # requires verification flow
                 "suggested_severity": suggested_severity,
-                "obstruction_present_probability": obstruction_present_probability,
-                "obstruction_present": obstruction_present,
+                "obstruction_yes_probability": obstruction_yes_probability,
+                "obstruction_yes": obstruction_yes,
                 "obstruction_verifier_checkpoint_loaded": obstruction_raw["checkpoint_loaded"],
-                "surface_problem_present_probability": surface_problem_present_probability,
-                "surface_problem_present": surface_problem_present,
+                "surface_problem_yes_probability": surface_problem_yes_probability,
+                "surface_problem_yes": surface_problem_yes,
                 "surface_problem_verifier_checkpoint_loaded": surface_raw["checkpoint_loaded"],
                 "suggested_report_kind": suggested_report_kind,
                 "suggested_obstacle_type": suggested_obstacle_type,
