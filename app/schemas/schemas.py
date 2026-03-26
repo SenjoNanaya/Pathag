@@ -106,9 +106,21 @@ class RouteRequest(BaseModel):
 
 class RouteStep(BaseModel):
     distance: float
-    duration: int
+    duration: int = 0
     instruction: str
     path_condition: Optional[PathCondition] = None
+
+
+class RouteObstacleDiagnostics(BaseModel):
+    buffer_meters: float
+    nearby_raw_count: int
+    excluded_resolved_count: int
+    excluded_unverified_count: int
+    excluded_expired_temporary_count: int
+    eligible_count: int
+    eligible_obstacle_yes_count: int
+    eligible_obstacle_no_count: int
+    notes: List[str] = []
 
 
 class RouteResponse(BaseModel):
@@ -119,11 +131,12 @@ class RouteResponse(BaseModel):
     coordinates: List[List[float]]  # [[lon, lat], [lon, lat], ...]
     steps: List[RouteStep]
     warnings: List[str] = []
+    obstacle_diagnostics: Optional[RouteObstacleDiagnostics] = None
 
 
 # Obstacle Schemas
 class ObstacleReportCreate(BaseModel):
-    reporter_id: int
+    reporter_id: Optional[int] = None
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     obstacle_type: ObstacleType
@@ -144,6 +157,15 @@ class ObstacleResolveCreate(BaseModel):
     resolver_id: int
 
 
+class ObstacleVerificationTemplate(BaseModel):
+    verifier_id: int = 1
+    notes: Optional[str] = "Admin verification"
+
+
+class ObstacleResolveTemplate(BaseModel):
+    resolver_id: int = 1
+
+
 class ObstacleReportResponse(BaseModel):
     id: int
     latitude: float
@@ -159,9 +181,19 @@ class ObstacleReportResponse(BaseModel):
     is_resolved: bool
     image_url: Optional[str]
     created_at: datetime
-    reporter_id: int
+    reporter_id: Optional[int] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+
+class AdminObstacleReportResponse(ObstacleReportResponse):
+    verification_count: int = 0
+    verify_endpoint: str
+    resolve_endpoint: str
+    unresolve_endpoint: str
+    verify_request_body: ObstacleVerificationTemplate
+    resolve_request_body: ObstacleResolveTemplate
+    unresolve_request_body: ObstacleResolveTemplate
 
 
 # Path Validation Schemas
@@ -189,6 +221,9 @@ class LGUReportResponse(BaseModel):
     high_severity_count: int
     heatmap_points: List[HeatmapPoint]
     csv_download_url: Optional[str] = None
+    # Planning-oriented rollups (all unresolved in bbox, not only heatmap-filtered cells).
+    subtype_breakdown: dict[str, int] = Field(default_factory=dict)
+    report_kind_breakdown: dict[str, int] = Field(default_factory=dict)
 
 
 class LGUHeatmapRequest(BaseModel):
@@ -208,6 +243,39 @@ class LGUHeatmapRequest(BaseModel):
 
     # Only verified obstacles should influence “inaccessibility” heatmaps.
     only_verified: bool = True
+
+
+class LGUPlanningExportRequest(BaseModel):
+    """
+    GIS / maintenance exports for a bounding box (campus, barangay, project corridor).
+
+    Typical workflow: export GeoJSON → QGIS/ArcGIS; join to road/path layers;
+    filter `workflow_status=confirmed_open` and `severity>=4` for capital works backlog.
+    """
+
+    min_latitude: float = Field(..., ge=-90, le=90)
+    min_longitude: float = Field(..., ge=-180, le=180)
+    max_latitude: float = Field(..., ge=-90, le=90)
+    max_longitude: float = Field(..., ge=-180, le=180)
+
+    only_verified: bool = Field(
+        default=True,
+        description="If true, only reports that passed verification (same bar as routing).",
+    )
+    include_resolved: bool = Field(
+        default=False,
+        description="If false, export only open issues (default for maintenance backlogs).",
+    )
+    min_severity: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=5,
+        description="Optional floor severity (e.g. 4 for high-priority lists).",
+    )
+    respect_temporary_ttl: bool = Field(
+        default=True,
+        description="Exclude expired temporary reports when true (matches live map TTL).",
+    )
 
 
 # ML — path surface classification (MobileNetV3)

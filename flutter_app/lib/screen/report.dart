@@ -7,7 +7,18 @@ import '../widgets/custom_nav_bar.dart';
 
 class ReportPage extends StatefulWidget {
   final int currentIndex;
-  const ReportPage({super.key, this.currentIndex = 2});
+  final double? initialLatitude;
+  final double? initialLongitude;
+  final String? initialLocationLabel;
+  final bool captureOnOpen;
+  const ReportPage({
+    super.key,
+    this.currentIndex = 2,
+    this.initialLatitude,
+    this.initialLongitude,
+    this.initialLocationLabel,
+    this.captureOnOpen = false,
+  });
 
   @override
   State<ReportPage> createState() => _ReportPage();
@@ -42,6 +53,21 @@ class _ReportPage extends State<ReportPage> {
     'raymundo gate': [14.1610, 121.2450],
   };
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialLocationLabel != null &&
+        widget.initialLocationLabel!.trim().isNotEmpty) {
+      _locationController.text = widget.initialLocationLabel!.trim();
+    }
+    if (widget.captureOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await _pickImage();
+      });
+    }
+  }
+
   Future<void> _pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.camera);
     if (pickedFile != null) {
@@ -74,7 +100,14 @@ class _ReportPage extends State<ReportPage> {
 
   List<double> _resolveCoordinates(String rawLocation) {
     final key = rawLocation.toLowerCase().trim();
-    return _uplbLandmarkCoords[key] ?? [14.1675, 121.2431];
+    final landmark = _uplbLandmarkCoords[key];
+    if (landmark != null) {
+      return landmark;
+    }
+    if (widget.initialLatitude != null && widget.initialLongitude != null) {
+      return [widget.initialLatitude!, widget.initialLongitude!];
+    }
+    return [14.1675, 121.2431];
   }
 
   Future<void> _submitReport() async {
@@ -86,7 +119,6 @@ class _ReportPage extends State<ReportPage> {
         final coords = _resolveCoordinates(_locationController.text);
 
         final payload = {
-          'reporter_id': 1,
           'latitude': coords[0],
           'longitude': coords[1],
           'obstacle_type': 'yes',

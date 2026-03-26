@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.routes import ml_combined
 from app.routes import routes as routing_routes
@@ -10,6 +12,7 @@ from app.routes import auth as auth_routes
 from app.routes import users as users_routes
 from app.routes import obstacles as obstacles_routes
 from app.routes import lgu_reports as lgu_routes
+from app.config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,15 +21,18 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting Pathag backend")
-    from app.services.path_classification import get_path_classifier
+    if settings.ML_WARMUP_ON_STARTUP:
+        from app.services.path_classification import get_path_classifier
 
-    get_path_classifier()
-    logger.info("Path classifier initialized")
+        get_path_classifier()
+        logger.info("Path classifier initialized")
 
-    from app.services.obstacle_classification import get_obstacle_classifier
+        from app.services.obstacle_classification import get_obstacle_classifier
 
-    get_obstacle_classifier()
-    logger.info("Obstacle classifier initialized")
+        get_obstacle_classifier()
+        logger.info("Obstacle classifier initialized")
+    else:
+        logger.info("ML warmup skipped (ML_WARMUP_ON_STARTUP=false); models load on first ML use")
 
     yield
     logger.info("Shutting down Pathag backend")
@@ -39,6 +45,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.get("/health", tags=["health"], summary="Liveness check for load balancers (Render, etc.).")
+def health():
+    return {"status": "ok"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,6 +57,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+uploads_path = Path(settings.UPLOAD_DIR)
+uploads_path.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
 
 app.include_router(
     ml_combined.router,

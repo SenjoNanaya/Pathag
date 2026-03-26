@@ -18,6 +18,10 @@ import enum
 from app.database import Base
 
 
+def _enum_values(enum_cls):
+    return [item.value for item in enum_cls]
+
+
 class AccessibilityType(str, enum.Enum):
     VISUALLY_IMPAIRED = "visually_impaired"
     MOVEMENT_IMPAIRED = "movement_impaired"
@@ -131,9 +135,21 @@ class ObstacleReport(Base):
     
     # Obstacle details
     obstacle_type = Column(Enum(ObstacleType), nullable=False)
-    report_kind = Column(Enum(ReportKind), nullable=False, default=ReportKind.OBSTACLE)
-    report_subtype = Column(Enum(ObstacleSubtype), nullable=False, default=ObstacleSubtype.OTHER)
-    subtype_source = Column(Enum(SubtypeSource), nullable=False, default=SubtypeSource.USER)
+    report_kind = Column(
+        Enum(ReportKind, values_callable=_enum_values),
+        nullable=False,
+        default=ReportKind.OBSTACLE,
+    )
+    report_subtype = Column(
+        Enum(ObstacleSubtype, values_callable=_enum_values),
+        nullable=False,
+        default=ObstacleSubtype.OTHER,
+    )
+    subtype_source = Column(
+        Enum(SubtypeSource, values_callable=_enum_values),
+        nullable=False,
+        default=SubtypeSource.USER,
+    )
     description = Column(Text)
     severity = Column(Integer, default=3)  # 1 (minor) to 5 (severe)
     is_temporary = Column(Boolean, default=True)
