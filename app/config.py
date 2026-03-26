@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # Binary verifiers (MobileNetV3, 2-class logits)
     OBSTRUCTION_VERIFIER_ML_CHECKPOINT_PATH: Optional[str] = None
     SURFACE_PROBLEM_VERIFIER_ML_CHECKPOINT_PATH: Optional[str] = None
+    OBSTRUCTION_GATE_THRESHOLD: float = 0.5
     
     # Application
     DEBUG: bool = True

@@ -21,15 +21,8 @@ class PathCondition(str, Enum):
 
 
 class ObstacleType(str, Enum):
-    VENDOR_STALL = "vendor_stall"
-    PARKED_VEHICLE = "parked_vehicle"
-    CONSTRUCTION = "construction"
-    BROKEN_PAVEMENT = "broken_pavement"
-    FLOODING = "flooding"
-    STEEP_INCLINE = "steep_incline"
-    STAIRS = "stairs"
-    NO_CURB_CUT = "no_curb_cut"
-    OTHER = "other"
+    YES = "yes"
+    NO = "no"
 
 
 # User Schemas
@@ -235,15 +228,8 @@ class PathCondition(str, Enum):
 
 
 class ObstacleType(str, Enum):
-    VENDOR_STALL = "vendor_stall"
-    PARKED_VEHICLE = "parked_vehicle"
-    CONSTRUCTION = "construction"
-    BROKEN_PAVEMENT = "broken_pavement"
-    FLOODING = "flooding"
-    STEEP_INCLINE = "steep_incline"
-    STAIRS = "stairs"
-    NO_CURB_CUT = "no_curb_cut"
-    OTHER = "other"
+    YES = "yes"
+    NO = "no"
 
 
 # User Schemas
@@ -435,5 +421,6 @@ class CombinedImageClassificationResponse(BaseModel):
     """
 
     path: PathClassificationResponse
+    obstruction_present_probability: Optional[float] = None
     obstacle_present: bool
     obstacle: Optional[ObstacleClassificationResponse] = None

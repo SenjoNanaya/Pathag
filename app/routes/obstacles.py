@@ -212,8 +212,7 @@ async def realtime_obstacle_stream(websocket: WebSocket) -> None:
                     suggested_obstacle_type = raw["obstacle_type"]
                 else:
                     suggested_report_kind = "surface_problem"
-                    # We store surface problems as an obstacle report for now.
-                    suggested_obstacle_type = ObstacleType.BROKEN_PAVEMENT.value
+                    suggested_obstacle_type = ObstacleType.YES.value
             else:
                 suggested_report_kind = "none"
                 suggested_obstacle_type = None

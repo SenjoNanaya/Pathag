@@ -276,17 +276,8 @@ class RoutingService:
             # Base penalty by severity (1-5)
             penalty = obstacle.severity * 0.05
             
-            # Increased penalty if obstacle type conflicts with user prefs
-            if user or request:
-                # Check user preferences
-                avoid_stairs = (user and user.avoid_stairs) or request.avoid_stairs
-                avoid_inclines = (user and user.avoid_steep_inclines) or request.avoid_steep_inclines
-                
-                if avoid_stairs and obstacle.obstacle_type == ObstacleType.STAIRS:
-                    penalty *= 2.0  # Double penalty
-                
-                if avoid_inclines and obstacle.obstacle_type == ObstacleType.STEEP_INCLINE:
-                    penalty *= 1.5
+            # Binary obstacle labels no longer encode obstacle subtype severity hints.
+            # Keep a uniform penalty and rely on report severity + verification status.
             
             score -= penalty
         
@@ -448,21 +439,10 @@ class RoutingService:
         
         warnings = []
         
-        # Get user preferences
-        avoid_stairs = (user and user.avoid_stairs) or request.avoid_stairs
-        avoid_inclines = (user and user.avoid_steep_inclines) or request.avoid_steep_inclines
-        require_curb_cuts = (user and user.require_curb_cuts) or request.require_curb_cuts
-        
-        # Check for preference violations
+        # Check for generic obstacle warnings in binary obstacle mode.
         for obs in obstacles:
-            if avoid_stairs and obs.obstacle_type == ObstacleType.STAIRS:
-                warnings.append(f"Route contains stairs at ({obs.latitude:.4f}, {obs.longitude:.4f})")
-            
-            if avoid_inclines and obs.obstacle_type == ObstacleType.STEEP_INCLINE:
-                warnings.append(f"Route contains steep incline")
-            
-            if require_curb_cuts and obs.obstacle_type == ObstacleType.NO_CURB_CUT:
-                warnings.append(f"Missing curb cut reported on route")
+            if obs.obstacle_type == ObstacleType.YES:
+                warnings.append("Route contains reported obstacle(s)")
             
             # High severity obstacles
             if obs.severity >= 4:

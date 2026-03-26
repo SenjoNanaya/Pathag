@@ -8,7 +8,7 @@ This repository currently contains:
 - **PostgreSQL + PostGIS** data models for users, path segments, obstacle reports, verifications, and routes
 - **MobileNetV3 (PyTorch)** classifiers:
   - path-condition classifier
-  - obstacle-type classifier
+  - obstacle yes/no classifier
   - binary verifiers (obstruction present/absent, surface-problem present/absent)
 - A route calculation service with:
   - fallback demo routing
@@ -26,7 +26,7 @@ This repository currently contains:
   - verify report (multi-user confirmation threshold)
   - resolve report
 - Realtime obstacle websocket:
-  - obstacle-type classifier output
+  - obstacle yes/no classifier output
   - obstruction verifier output
   - surface-problem verifier output
   - `suggested_report_kind` and `suggested_obstacle_type` for client-side automation
@@ -89,9 +89,9 @@ Both endpoints accept `multipart/form-data` with `file`.
 - Temporary obstacles decay after `TEMP_OBSTACLE_TTL_HOURS` (default 72).
 - ML outputs are advisory and require verification before live-map influence.
 
-## Constitution Alignment
+## Constitution Alignment (YSES Hackfest)
 
-Future code changes must align with the constitution, especially:
+Future code changes must align with the YSES Hackfest constitution (`D:/Download/YSES Hackfest.pdf`), especially:
 
 - **Never allow unverified high-impact data into live routing.**
   - Keep human-in-the-loop moderation before live map influence.
@@ -196,7 +196,6 @@ python ml_service/binary_verifier_train.py --train_dir <.../train> --val_dir <..
 - It can create and verify obstacle reports
 
 Adjust backend base URL in `flutter_app/lib/screen/map_page.dart` as needed.
-=======
 # Pathag (Backend + ML Prototype)
 
 Pathag is a people-centric navigation backend prototype focused on **pedestrian accessibility**. This repository currently contains:
@@ -309,4 +308,3 @@ Then open the interactive docs:
 
 - The routing service is still a **prototype**; it does not yet call ORS and does not yet compute true network paths.
 - Database migrations (Alembic) are not wired up yet in this repo.
->>>>>>> 9deaef4 (FEAT: Combined both Path Classifier and Object Classifier)

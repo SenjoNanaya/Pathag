@@ -34,15 +34,8 @@ class PathCondition(str, enum.Enum):
 
 
 class ObstacleType(str, enum.Enum):
-    VENDOR_STALL = "vendor_stall"
-    PARKED_VEHICLE = "parked_vehicle"
-    CONSTRUCTION = "construction"
-    BROKEN_PAVEMENT = "broken_pavement"
-    FLOODING = "flooding"
-    STEEP_INCLINE = "steep_incline"
-    STAIRS = "stairs"
-    NO_CURB_CUT = "no_curb_cut"
-    OTHER = "other"
+    YES = "yes"
+    NO = "no"
 
 
 class User(Base):

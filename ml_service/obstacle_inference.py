@@ -28,7 +28,7 @@ def _build_narrative_reasons(
     )
     reasons.append(
         f"The selected label is {top_class!r} because it has the highest softmax score "
-        f"({probabilities[top_class]:.4f}) among the nine classes."
+        f"({probabilities[top_class]:.4f}) among the two classes."
     )
     if not checkpoint_loaded:
         reasons.append(
@@ -43,7 +43,7 @@ def _build_narrative_reasons(
 
 class ObstacleImageClassifier:
     """
-    MobileNetV3-small transfer-learning classifier for obstacle type imagery.
+    MobileNetV3-small transfer-learning classifier for binary obstacle presence.
     """
 
     def __init__(

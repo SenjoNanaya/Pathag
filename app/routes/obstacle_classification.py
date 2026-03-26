@@ -18,7 +18,7 @@ router = APIRouter()
 @router.post(
     "/classify-obstacle-image",
     response_model=ObstacleClassificationResponse,
-    summary="Classify obstacle type from an image (runs regardless of path condition)",
+    summary="Classify obstacle presence (yes/no) from an image",
 )
 async def classify_obstacle_image(
     file: UploadFile = File(...),
