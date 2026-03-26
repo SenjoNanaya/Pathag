@@ -31,7 +31,7 @@ def _save_image_any(image_val: Any, out_path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Create a binary surface-problem verifier dataset (present/absent) "
+            "Create a binary surface-problem verifier dataset (yes/no) "
             "from Project Sidewalk surface-problem validator data."
         )
     )
@@ -63,7 +63,7 @@ def main() -> None:
         if "image" not in row or "label" not in row:
             raise SystemExit("Expected columns: image, label")
 
-        bucket = "present" if int(row["label"]) == 0 else "absent"
+        bucket = "yes" if int(row["label"]) == 0 else "no"
 
         split_dir = val_dir if rng.random() < args.val_ratio else train_dir
         label_dir = split_dir / bucket

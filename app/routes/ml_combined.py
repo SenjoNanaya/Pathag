@@ -79,24 +79,24 @@ async def classify_image(file: UploadFile = File(...)) -> CombinedImageClassific
         eligible_for_live_map=False,
     )
 
-    obstruction_present_probability = None
-    obstruction_present = True
+    obstruction_yes_probability = None
+    obstruction_yes = True
     try:
         obstruction_raw = get_obstruction_verifier().predict_proba(body)
-        obstruction_present_probability = float(obstruction_raw["present_probability"])
-        obstruction_present = (
-            obstruction_present_probability >= settings.OBSTRUCTION_GATE_THRESHOLD
+        obstruction_yes_probability = float(obstruction_raw["yes_probability"])
+        obstruction_yes = (
+            obstruction_yes_probability >= settings.OBSTRUCTION_GATE_THRESHOLD
         )
     except (OSError, ValueError, KeyError, TypeError):
         logger.warning("Obstruction gate failed; falling back to obstacle classifier output")
 
     # Gate obstacle output: if no obstruction is likely, do not trust obstacle type strongly.
-    obstacle_present = obstruction_present and obstacle_resp.obstacle_type == ObstacleType.YES
+    obstacle_yes = obstruction_yes and obstacle_resp.obstacle_type == ObstacleType.YES
 
     return CombinedImageClassificationResponse(
         path=path_resp,
-        obstruction_present_probability=obstruction_present_probability,
-        obstacle_present=obstacle_present,
-        obstacle=obstacle_resp if obstacle_present else None,
+        obstruction_yes_probability=obstruction_yes_probability,
+        obstacle_yes=obstacle_yes,
+        obstacle=obstacle_resp if obstacle_yes else None,
     )
 

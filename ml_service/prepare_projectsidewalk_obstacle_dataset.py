@@ -49,6 +49,11 @@ def main() -> None:
         action="store_true",
         help="If set, export only yes samples and skip no samples.",
     )
+    parser.add_argument(
+        "--only_present",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.output_dir)
@@ -62,6 +67,7 @@ def main() -> None:
 
     i = 0
     skipped_no = 0
+    export_only_yes = args.only_yes or args.only_present
     for row in tqdm(ds, total=min(len(ds), args.max_samples)):
         if i >= args.max_samples:
             break
@@ -72,7 +78,7 @@ def main() -> None:
         # Dataset labels: 0=correct, 1=incorrect.
         # For this binary obstacle schema: correct => yes, incorrect => no.
         bucket = "yes" if int(row["label"]) == 0 else "no"
-        if args.only_yes and bucket == "no":
+        if export_only_yes and bucket == "no":
             skipped_no += 1
             continue
 
