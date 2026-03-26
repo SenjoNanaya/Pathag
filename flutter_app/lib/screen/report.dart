@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../widgets/custom_nav_bar.dart';
@@ -180,6 +179,8 @@ class _ReportPage extends State<ReportPage> {
     _commentController.dispose();
     super.dispose();
   }
+
+  // === | UI HELPERS | ===
 
   Widget _sectionHeader(String text) {
     return Text(
@@ -362,6 +363,8 @@ class _ReportPage extends State<ReportPage> {
       )
     ); 
   }
+
+  // === | FRONT-END | ===
 
   @override
   Widget build(BuildContext context) {
