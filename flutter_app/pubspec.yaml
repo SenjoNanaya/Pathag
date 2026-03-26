@@ -37,6 +37,7 @@ dependencies:
   flutter_map: ^7.0.0 # Or latest version
   latlong2: ^0.9.1
   provider: ^6.1.5+1
+  image_picker: ^1.2.1
 
 dev_dependencies:
   flutter_test:

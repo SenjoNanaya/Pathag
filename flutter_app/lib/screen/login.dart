@@ -127,7 +127,7 @@ class _LoginPage extends State<LoginPage> {
                 child: ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      print("Logging in with $email");
+                      debugPrint("Logging in with $email");
                       Navigator.push(context, MaterialPageRoute(builder: (context) => MapPage()));
                     }
                   },

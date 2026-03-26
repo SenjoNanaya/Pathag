@@ -1,0 +1,54 @@
+CONSTITUTION FILE
+WHAT DOES THIS PROJECT DO, AND WHO USES IT?
+Purpose: Pathag is a people-centric navigation application designed to help pedestrians navigate urban environments safely by focusing on accessibility rather than just the shortest motorized route. It identifies "micro-realities" like pavement quality, steep gradients, and obstacles (e.g., parked vehicles, vendor stalls) that traditional GPS tools like Google Maps or Waze often ignore.
+Core Users:
+Primary: Individuals with visual and movement impairments (PWDs) who require specific data on accessibility features like curb cuts, tactile paving, and smooth surfaces.
+Visual Impairments: Color Blindness, Partial Blindness
+Movement Impairments: Crutches, Wheelchair, Scoliosis People, Limps
+Secondary: Everyday pedestrians in high-density areas or university campuses (like UPLB) seeking safer walking routes.
+Stakeholders: Local Government Units (LGUs) who use the app's community-sourced "Heatmaps of Inaccessibility" to prioritize infrastructure repairs
+WHAT TECH STACK, FRAMEWORKS, AND DATABASES?
+Mobile Frontend: Developed using Flutter (Dart) for cross-platform deployment, utilizing the Semantics widget for native accessibility (TalkBack/Voiceover) and flutter_map for map rendering.
+Backend: Built with Python using FastAPI, chosen for its compatibility with machine learning libraries.
+Machine Learning/AI:
+Computer Vision: Uses MobileNetV3 for classifying path conditions (smooth, cracked, obstructed, etc.).
+Using Project Sidewalk of US as initial dataset
+Pathfinding: Uses OpenRouteService (ORS) with a custom Weighted Cost Model to penalize inaccessible routes.
+Natural Language Processing (NLP): A template-based natural language generation approach for conversational route narration.
+Databases: PostgreSQL with the PostGIS extension for geospatial data storage and coordinate-based accessibility scoring.
+Infrastructure: Hosted on GitHub, with backend deployment on Render (free-tier) and database hosting on Supabase.
+WHAT ARE THE FOLDER STRUCTURE AND NAMING CONVENTION
+Note: While a specific directory tree is not provided, the proposal outlines the architectural components that dictate the structure:
+Folder Structure: 
+Front-end
+Back-end
+Database
+Modular Architecture: A three-tier model consisting of a mobile front end, a RESTful backend, and a geospatial database layer.
+Naming Logic: snakecase! 
+Accessibility Grades: Discrete labels for path segments include smooth, cracked_or_uneven, obstructed, no_sidewalk, and under_construction.
+Git Commit: <ACTION>: <FILENAME> - <DESCRIPTION> [<STATUS>]
+Add or Delete: entirely new 
++Feat or -Feat: parts of something
+Modify
+NLP Templates: Parametrized by path condition, obstacle type, distance, and turn direction.
+WHAT MUST NEVER HAPPEN IN THIS CODEBASE
+Never assume a walking route is just an adjusted car route: The system must prioritize pedestrian-specific micro-impediments over motorized efficiency.
+Never allow unverified user data to corrupt path scores: Incoming community-submitted images must pass through a human verification gate before being committed to the live dataset.
+Never rely solely on static datasets: The codebase must be designed for dynamic updates, as static data like OpenStreetMap (OSM) in the Philippines is frequently outdated.
+No Unverified Data Injection: High-impact reports (e.g., "Road Closed" or "Sidewalk Unusable") must never be pushed to the global map without passing through the multi-user verification logic or the "Human-in-the-loop" gate.
+Never allow "Ghost" Obstacles to persist: The codebase must include an automated expiration or "decay" logic for community reports. A report of a "parked vehicle" or "temporary vendor stall" must never remain on the map indefinitely; it must require re-verification or be purged after a set timeframe to maintain data trust.
+No "Black-Box" Route Decisions: The weighted cost model (the logic that decides why Path A is better than Path B) must never be opaque. The code must be structured to provide "Narrative Reasons" (e.g., "Choosing this route to avoid 3 sets of stairs"), ensuring the user understands why the app is diverting them.
+No Hardcoded Metric Assumptions: The code must never assume a "standard" walking speed or physical capability. Parameters for what constitutes an "obstacle" (e.g., a 2-inch curb vs. a 6-inch curb) must remain adjustable variables to accommodate different types of mobility aids (wheelchairs, canes, strollers).
+Never store PII (Personally Identifiable Information) in Logs: To comply with Data Privacy acts and ensure user safety, raw GPS traces must never be stored alongside user IDs in server logs. Data used for "Heatmaps of Inaccessibility" must be anonymized and "fuzzed" before hitting the database.
+Never allow "Dead-End" Recalculations: The pathfinding logic must never enter an infinite loop or return a "No Route Found" error without a fallback. If every path is obstructed, the system must identify the "Least-Hazardous" route rather than leaving the user stranded without guidance.
+Never ignore offline functionality for navigation: The NLP guidance layer must remain deterministic and functional offline to accommodate unstable mobile connectivity.
+EARS NOTATION
+Easy Approach to Requirements Syntax
+UBIQUITOUS (THE SYSTEM SHALL [behavior])
+EVENT-DRIVEN (WHEN [EVENT], THE SYSTEM SHALL [BEHAVIOR]
+STATE-DRIVEN (WHILE [STATE, THE SYSTEM SHALL [BEHAVIOR]
+UNWANTED (IF [CONDITION], THEN THE SYSTEM SHALL [RESPONSE])
+OPTIONAL (WHERE [FEATURE], THE SYSTEM SHALL [BEHAVIOR
+START APPLICATION
+
+
