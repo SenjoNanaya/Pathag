@@ -17,6 +17,7 @@ class MapPage extends StatefulWidget {
 
 class _MapPage extends State<MapPage> {
   bool _isSearching = false;
+  bool _isNavigating = false;
 
   final TextEditingController _pointAController = TextEditingController();
   final TextEditingController _pointBController = TextEditingController();
@@ -33,6 +34,16 @@ class _MapPage extends State<MapPage> {
     'main lib': const LatLng(14.1653, 121.2400),
     'student union': const LatLng(14.1645, 121.2440),
     'raymundo gate': const LatLng(14.1610, 121.2450),
+  };
+
+  // PURPOSE: Path Summary Dummy Data
+  Map<String, dynamic> pathSummary = {
+    "rating": 85,
+    "obstaclesEncountered": {
+      "noSidewalk": 0,
+      "unevenPath": 2,
+      "obstruction": 3
+    }
   };
 
   // === | NAVIGATION LOGIC | ===
@@ -64,11 +75,13 @@ class _MapPage extends State<MapPage> {
             Polyline(
               points: route,
               color: Colors.blue[800]!,
-              strokeWidth: 4.0,
+              strokeWidth: 5.0,
             ),
           ];
           _isSearching = false; 
         });
+
+        _showRouteSummary();
       }
     } catch (e) {
       if (mounted) {
@@ -78,6 +91,26 @@ class _MapPage extends State<MapPage> {
       }
     }
   }
+
+  // == | ROUTE DECISION | ==
+  void _acceptRoute() {
+    setState(() {
+      _isNavigating = true; 
+    });
+    Navigator.pop(context);
+  }
+
+  void _rejectRoute() {
+    setState(() {
+      routeLines = [];
+      pointA = null;
+      pointB = null;
+      _isNavigating = false;
+    });
+    Navigator.pop(context);
+  }
+
+  // == | ROUTE CALCULATION | ==
 
   Future<List<LatLng>> _calculateRoute(LatLng origin, LatLng destination) async {
     final uri = Uri.parse('$httpBaseUrl/api/v1/routes/calculate');
@@ -166,7 +199,7 @@ class _MapPage extends State<MapPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Find Route", 
+              Text("FIND ROUTE", 
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue[800], fontSize: 16)
               ),
               IconButton(
@@ -213,6 +246,210 @@ class _MapPage extends State<MapPage> {
     );
   }
 
+  // === | PATH SUMMARY | ===
+  void _showRouteSummary() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, 
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildPathSummary(),
+    );
+  }
+
+  Widget _buildPathSummary() {
+    final obstacles = pathSummary["obstaclesEncountered"];
+    
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Visual Grabber
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
+          const SizedBox(height: 20),
+
+          // Header Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Optimized Route", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  Text("Estimated 5-8 mins walk", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                ],
+              ),
+              _buildRatingBadge(),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // CHANGE: Added horizontal obstacle scroll for cleaner space usage
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _obstacleChip(Icons.report_problem_rounded, "${obstacles['unevenPath']} Uneven"),
+                const SizedBox(width: 8),
+                _obstacleChip(Icons.construction_rounded, "${obstacles['obstruction']} Blocked"),
+                const SizedBox(width: 8),
+                _obstacleChip(Icons.do_not_disturb_on_rounded, "No Path"),
+              ],
+            ),
+          ),
+          
+          const Divider(height: 40),
+
+          // ACTION BUTTONS (Refined Layout)
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: _rejectRoute,
+                  child: Text("REJECT", style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: _acceptRoute,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[800],
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text("START NAVIGATION", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // === | HELPER WIDGETS | ===
+
+  // CHANGE: Consistent Badge style for the Accessibility Score
+  Widget _buildRatingBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.blue[50], // Light blue background for contrast
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue[100]!),
+      ),
+      child: Column(
+        children: [
+          Text(
+            "${pathSummary['rating']}%",
+            style: TextStyle(
+              color: Colors.blue[800],
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+            ),
+          ),
+          Text(
+            "Access Score",
+            style: TextStyle(color: Colors.blue[800], fontSize: 10, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // CHANGE: Refined Obstacle Chip with consistent Grey[100] fill
+  Widget _obstacleChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: Colors.blue[800]),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NEW: Active Navigation HUD (Floating Bar)
+  Widget _buildNavigationHud() {
+    return Positioned(
+      bottom: 30, // Floats above the bottom of the screen
+      left: 20,
+      right: 20,
+      child: Container(
+        height: 70,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.blue[800],
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.navigation_rounded, color: Colors.white, size: 28),
+            const SizedBox(width: 15),
+            const Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "NAVIGATING",
+                    style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                  ),
+                  Text(
+                    "Follow the blue path",
+                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            // CHANGE: Integrated Quick-Report shortcut for accessibility
+            IconButton(
+              icon: const Icon(Icons.add_a_photo_rounded, color: Colors.white),
+              onPressed: () {
+                // Future Logic: Jump straight to ReportPage with coordinates
+              },
+            ),
+            const VerticalDivider(color: Colors.white24, indent: 15, endIndent: 15),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+              onPressed: () => setState(() => _isNavigating = false),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // === | FRONT-END | ===
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -244,10 +481,11 @@ class _MapPage extends State<MapPage> {
               ),
             ],
           ),
-          _createSearchUI(),
+          if(!_isNavigating) _createSearchUI(),
+          if(_isNavigating) _buildNavigationHud()
         ],
       ),
-      bottomNavigationBar: CustomNavBar(selectedIndex: widget.currentIndex),
+      bottomNavigationBar: _isNavigating ? null : CustomNavBar(selectedIndex: widget.currentIndex),
     );
   }
 }
