@@ -52,7 +52,6 @@ class _MapPage extends State<MapPage> {
   bool _isSearching = false;
   bool _isNavigating = false;
   final MapController _mapController = MapController();
-
   final TextEditingController _pointAController = TextEditingController();
   final TextEditingController _pointBController = TextEditingController();
 
