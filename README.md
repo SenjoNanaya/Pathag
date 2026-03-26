@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Pathag (Backend + ML + Flutter Prototype)
 
 Pathag is a people-centric navigation prototype focused on **pedestrian accessibility**.
@@ -89,9 +90,9 @@ Both endpoints accept `multipart/form-data` with `file`.
 - Temporary obstacles decay after `TEMP_OBSTACLE_TTL_HOURS` (default 72).
 - ML outputs are advisory and require verification before live-map influence.
 
-## Constitution Alignment
+## Constitution Alignment (YSES Hackfest)
 
-Future code changes must align with the constitution, especially:
+Future code changes must align with the YSES Hackfest constitution (`D:/Download/YSES Hackfest.pdf`), especially:
 
 - **Never allow unverified high-impact data into live routing.**
   - Keep human-in-the-loop moderation before live map influence.
