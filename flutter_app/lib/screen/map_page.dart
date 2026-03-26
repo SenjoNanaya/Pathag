@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../widgets/custom_nav_bar.dart';
 
 class MapPage extends StatefulWidget {
-  const MapPage({super.key});
+  final int currentIndex;
+  const MapPage({super.key, this.currentIndex = 1});
 
   @override
   State<MapPage> createState() => _MapPage();
@@ -11,8 +13,6 @@ class MapPage extends StatefulWidget {
 
 class _MapPage extends State<MapPage> {
   // PURPOSE: Track which Page is Active
-  int _selectedIndex = 1;
-
   final TextEditingController _pointAController = TextEditingController();
   final TextEditingController _pointBController = TextEditingController();
 
@@ -108,59 +108,7 @@ class _MapPage extends State<MapPage> {
       ),
       
       // === | NAVIGATION BUTTON BAR | ===
-      bottomNavigationBar: _createFloatingButtonBar(),
-    );
-  }
-
-  Widget _createFloatingButtonBar() {
-    return BottomAppBar(
-      color: Colors.white,
-      elevation: 25,
-      padding: EdgeInsets.zero,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavButton(Icons.person, "PROFILE", 0, () {
-            setState(() => _selectedIndex = 0);
-          }),
-          _buildNavButton(Icons.map, "MAP", 1, () {
-            setState(() => _selectedIndex = 1);
-          }),
-          _buildNavButton(Icons.report_gmailerrorred, "REPORT", 2, () {
-            setState(() => _selectedIndex = 2);
-          }),
-        ],
-      ),
-    );
-  }
-
-  // PURPOSE: Helper Widget - Floating Bar Buttons
-  Widget _buildNavButton(IconData icon, String label, int index, VoidCallback onTap) {
-    // CHANGE: Check if this specific button is the one currently active
-    bool active = _selectedIndex == index; 
-    final Color itemColor = active ? Colors.blue[800]! : Colors.grey[600]!;
-    
-    return Expanded( 
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8), 
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: itemColor, size: 28),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: itemColor,
-                  fontWeight: active ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      bottomNavigationBar: const CustomNavBar(selectedIndex: 1)
     );
   }
 

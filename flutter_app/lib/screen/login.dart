@@ -126,7 +126,6 @@ class _LoginPage extends State<LoginPage> {
                 height: 55,
                 child: ElevatedButton(
                   onPressed: () {
-                    // 5. Trigger validation logic
                     if (_formKey.currentState!.validate()) {
                       print("Logging in with $email");
                       Navigator.push(context, MaterialPageRoute(builder: (context) => MapPage()));
