@@ -27,7 +27,7 @@ class _StartPage extends State<StartPage> {
             Image.asset(
               'images/pathagLogo.png',
               width: 500,
-              errorBuilder: (context, error, StackTrace) {
+              errorBuilder: (context, error, stackTrace) {
                 return const Icon(
                   Icons.map_outlined, 
                   size: 100, 

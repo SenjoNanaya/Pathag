@@ -128,7 +128,7 @@ class _LoginPage extends State<LoginPage> {
                   onPressed: () {
                     // 5. Trigger validation logic
                     if (_formKey.currentState!.validate()) {
-                      print("Logging in with $email");
+                      debugPrint("Logging in with $email");
                       Navigator.push(context, MaterialPageRoute(builder: (context) => MapPage()));
                     }
                   },

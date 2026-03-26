@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from geoalchemy2.elements import WKTElement
 
@@ -83,6 +84,20 @@ def verify_obstacle_report(
     if report is None:
         raise HTTPException(status_code=404, detail="Obstacle report not found")
 
+    existing_verification = (
+        db.query(ObstacleVerification)
+        .filter(
+            ObstacleVerification.obstacle_report_id == report.id,
+            ObstacleVerification.verifier_id == payload.verifier_id,
+        )
+        .first()
+    )
+    if existing_verification is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This verifier has already verified this obstacle report.",
+        )
+
     # Record the verification event.
     verification = ObstacleVerification(
         obstacle_report_id=report.id,
@@ -90,7 +105,14 @@ def verify_obstacle_report(
         notes=payload.notes,
     )
     db.add(verification)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This verifier has already verified this obstacle report.",
+        ) from None
 
     # Compute how many independent confirmations exist and set `is_verified`.
     verification_count = (

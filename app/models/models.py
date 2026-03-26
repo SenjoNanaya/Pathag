@@ -1,4 +1,15 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Enum, Text
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Float,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Enum,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from geoalchemy2 import Geometry
@@ -187,6 +198,13 @@ class ObstacleVerification(Base):
     """
 
     __tablename__ = "obstacle_verifications"
+    __table_args__ = (
+        UniqueConstraint(
+            "obstacle_report_id",
+            "verifier_id",
+            name="uq_obstacle_verifications_report_verifier",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 
