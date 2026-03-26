@@ -12,6 +12,9 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPage extends State<MapPage> {
+  // PURPOSE: Track if Search UI is Expanded
+  bool _isSearching = false;
+
   // PURPOSE: Track which Page is Active
   final TextEditingController _pointAController = TextEditingController();
   final TextEditingController _pointBController = TextEditingController();
@@ -47,6 +50,7 @@ class _MapPage extends State<MapPage> {
             strokeWidth: 4.0,
           ),
         ];
+        _isSearching = false;
       } else { routeLines = []; }
     });
 
@@ -61,7 +65,7 @@ class _MapPage extends State<MapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      //appBar: AppBar(title: const Text('Pathag Search')),
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
 
@@ -112,52 +116,119 @@ class _MapPage extends State<MapPage> {
     );
   }
 
+  // === | SEARCH UI | ===
+  // PURPOSE: Tracks what kind of Search UI is shown
   Widget _createSearchUI() {
-      return Positioned(
-            top: 50,
-            left: 15,
-            right: 15,
-            child: Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              elevation: 8,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: _pointAController,
-                      decoration: const InputDecoration(
-                        hintText: "Enter Point A (e.g., PhySci)",
-                        prefixIcon: Icon(Icons.search, color: Colors.green),
-                        border: InputBorder.none,
-                      ),
-                    ),
-                    const Divider(),
-                    TextField(
-                      controller: _pointBController,
-                      decoration: const InputDecoration(
-                        hintText: "Enter Point B (e.g., Main Lib)",
-                        prefixIcon: Icon(Icons.search, color: Colors.red),
-                        border: InputBorder.none,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue[800],
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: _searchLocations,
-                        child: const Text("Find Path"),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return Positioned(
+      top: 50,
+      left: 15,
+      right: 15,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(_isSearching ? 15 : 30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
-          );
-    }
+          ],
+        ),
+        child: ClipRRect( 
+          borderRadius: BorderRadius.circular(_isSearching ? 15 : 30),
+          child: AnimatedCrossFade(
+            firstChild: _buildCompactSearch(),
+            secondChild: _buildExpandedSearch(),
+            crossFadeState: _isSearching 
+                ? CrossFadeState.showSecond 
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 400),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // PURPOSE: Compact View - just a single bar
+  Widget _buildCompactSearch() {
+    return InkWell(
+      onTap: () => setState(() => _isSearching = true),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        child: Row(
+          children: [
+            Icon(Icons.search, color: Colors.grey),
+            SizedBox(width: 10),
+            Text("Search campus landmarks...", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // PURPOSE: Expanded View - Point A to Point B
+  Widget _buildExpandedSearch() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Find Route", 
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue[800], fontSize: 16)
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () => setState(() => _isSearching = false),
+              )
+            ],
+          ),
+          TextField(
+            controller: _pointAController,
+            decoration: const InputDecoration(
+              hintText: "Start Point (e.g., PhySci)",
+              hintStyle: TextStyle(
+                color: Colors.grey, 
+                fontSize: 14,
+              ),
+              prefixIcon: Icon(Icons.circle_outlined, color: Colors.green, size: 20),
+              border: InputBorder.none,
+            ),
+          ),
+          const Divider(height: 1),
+          TextField(
+            controller: _pointBController,
+            decoration: const InputDecoration(
+              hintText: "Destination (e.g., Main Lib)",
+              hintStyle: TextStyle(
+                color: Colors.grey, 
+                fontSize: 14,
+              ),
+              prefixIcon: Icon(Icons.location_on, color: Colors.red, size: 20),
+              border: InputBorder.none,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 45,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[800],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: _searchLocations,
+              child: const Text("FIND PATH"),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
