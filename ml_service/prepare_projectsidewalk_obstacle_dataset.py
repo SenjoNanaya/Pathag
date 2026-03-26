@@ -31,8 +31,8 @@ def _save_image_any(image_val: Any, out_path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Create a binary obstruction verifier dataset (present/absent) "
-            "from Project Sidewalk obstacle validator data."
+            "Create a binary obstacle dataset (yes/no) from Project Sidewalk "
+            "obstacle validator data."
         )
     )
     parser.add_argument(
@@ -44,6 +44,11 @@ def main() -> None:
     parser.add_argument("--max_samples", type=int, default=20000)
     parser.add_argument("--val_ratio", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--only_yes",
+        action="store_true",
+        help="If set, export only yes samples and skip no samples.",
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.output_dir)
@@ -56,6 +61,7 @@ def main() -> None:
     ds = load_dataset(args.hf_dataset, split=args.split)
 
     i = 0
+    skipped_no = 0
     for row in tqdm(ds, total=min(len(ds), args.max_samples)):
         if i >= args.max_samples:
             break
@@ -63,9 +69,12 @@ def main() -> None:
         if "image" not in row or "label" not in row:
             raise SystemExit("Expected columns: image, label")
 
-        # Dataset labels: 0=correct, 1=incorrect
-        # For binary presence verifier: correct => present, incorrect => absent
-        bucket = "present" if int(row["label"]) == 0 else "absent"
+        # Dataset labels: 0=correct, 1=incorrect.
+        # For this binary obstacle schema: correct => yes, incorrect => no.
+        bucket = "yes" if int(row["label"]) == 0 else "no"
+        if args.only_yes and bucket == "no":
+            skipped_no += 1
+            continue
 
         split_dir = val_dir if rng.random() < args.val_ratio else train_dir
         label_dir = split_dir / bucket
@@ -75,7 +84,8 @@ def main() -> None:
         _save_image_any(row["image"], out_path)
         i += 1
 
-    print(f"Done. Wrote up to {i} samples into {out_dir}.")
+    print(f"Done. Wrote {i} samples into {out_dir}.")
+    print(f"Skipped {skipped_no} 'no' samples.")
 
 
 if __name__ == "__main__":

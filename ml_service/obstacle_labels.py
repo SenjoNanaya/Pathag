@@ -11,14 +11,7 @@ from typing import Tuple
 
 
 OBSTACLE_TYPE_CLASS_ORDER: Tuple[str, ...] = (
-    "vendor_stall",
-    "parked_vehicle",
-    "construction",
-    "broken_pavement",
-    "flooding",
-    "steep_incline",
-    "stairs",
-    "no_curb_cut",
-    "other",
+    "yes",
+    "no",
 )
 
