@@ -1,20 +1,3 @@
-"""
-Fine-tune MobileNetV3-small on folder-organized obstacle images (ImageFolder).
-
-Expected layout:
-    obstacle_dataset/
-      train/
-        vendor_stall/
-          *.jpg
-        parked_vehicle/
-        ...
-      val/
-        vendor_stall/
-        ...
-
-Folder names must match `ObstacleType` enum string values (snake_case).
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -59,8 +42,8 @@ def _make_loaders(
     train_tf = weights.transforms()
     val_tf = weights.transforms()
 
-    train_ds = ImageFolder(str(train_dir), transform=train_tf)
-    val_ds = ImageFolder(str(val_dir), transform=val_tf)
+    train_ds = ImageFolder(str(train_dir), transform=train_tf, allow_empty=True)
+    val_ds = ImageFolder(str(val_dir), transform=val_tf, allow_empty=True)
 
     found_train = set(train_ds.class_to_idx.keys())
     required = set(OBSTACLE_TYPE_CLASS_ORDER)
