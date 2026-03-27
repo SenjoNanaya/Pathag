@@ -51,6 +51,25 @@ app = FastAPI(
 def health():
     return {"status": "ok"}
 
+
+@app.get(
+    "/api/v1/ml/status",
+    tags=["ml"],
+    summary="ML feature flag status for demos/operations.",
+)
+def ml_status():
+    if settings.ML_ENABLED:
+        return {
+            "ml_enabled": True,
+            "status": "enabled",
+            "message": "ML endpoints are enabled.",
+        }
+    return {
+        "ml_enabled": False,
+        "status": "disabled",
+        "message": "ML is disabled for this deployment.",
+    }
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
