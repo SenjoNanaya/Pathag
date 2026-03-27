@@ -1183,6 +1183,18 @@ class RoutingService:
                 nearest_obstacle = assigned[0]
                 path_condition = self._path_condition_from_obstacle(nearest_obstacle)
                 instruction += f" (⚠️ {nearest_obstacle.obstacle_type.value} reported ahead)"
+            elif yes_obs and near_hazard_m > on_path_m:
+                # Align map visuals with score penalties: show an amber "near hazard"
+                # band for hazards that are close enough to affect score but not close
+                # enough to be treated as on-segment impediments.
+                min_yes_dist = float("inf")
+                for o in yes_obs:
+                    d = self._distance_obstacle_to_segment_m(o, lat1, lon1, lat2, lon2)
+                    if d < min_yes_dist:
+                        min_yes_dist = d
+                if on_path_m < min_yes_dist <= near_hazard_m:
+                    path_condition = PathCondition.NEAR_HAZARD
+                    instruction += " (⚠️ nearby reported hazard)"
             
             step = RouteStep(
                 distance=segment_distance,

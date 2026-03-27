@@ -136,6 +136,8 @@ class _MapPage extends State<MapPage> {
 
   Color _segmentColor(String pathCondition) {
     switch (pathCondition.toLowerCase()) {
+      case 'near_hazard':
+        return Colors.amber;
       case 'uneven':
         return Colors.yellow;
       case 'cracked':
@@ -376,6 +378,7 @@ class _MapPage extends State<MapPage> {
     int noSidewalk = 0;
     int unevenPath = 0;
     int obstruction = 0;
+    int nearHazard = 0;
 
     // Count segment issues from step path labels (ground truth for drawn route),
     // not from free-text warnings which may include nearby/non-segment context.
@@ -387,6 +390,32 @@ class _MapPage extends State<MapPage> {
         noSidewalk += 1;
       } else if (condition == 'obstructed') {
         obstruction += 1;
+      } else if (condition == 'near_hazard') {
+        nearHazard += 1;
+      }
+    }
+
+    // Keep warning parsing only as a fallback when route steps are unavailable.
+    if (steps.isEmpty) {
+      for (final warning in warnings) {
+        final lower = warning.toLowerCase();
+        if (lower.contains('sidewalk')) {
+          noSidewalk += 1;
+        }
+        if (lower.contains('uneven') ||
+            lower.contains('broken pavement') ||
+            lower.contains('surface')) {
+          unevenPath += 1;
+        }
+        if (lower.contains('obstacle') ||
+            lower.contains('parked vehicle') ||
+            lower.contains('vendor') ||
+            lower.contains('construction') ||
+            lower.contains('flooding') ||
+            lower.contains('stairs') ||
+            lower.contains('curb')) {
+          obstruction += 1;
+        }
       }
     }
 
@@ -423,6 +452,7 @@ class _MapPage extends State<MapPage> {
         "noSidewalk": noSidewalk,
         "unevenPath": unevenPath,
         "obstruction": obstruction,
+        "nearHazard": nearHazard,
       }
     };
   }
@@ -847,6 +877,8 @@ class _MapPage extends State<MapPage> {
                 _obstacleChip(Icons.construction_rounded, "${obstacles['obstruction']} Blocked"),
                 const SizedBox(width: 8),
                 _obstacleChip(Icons.do_not_disturb_on_rounded, "${obstacles['noSidewalk']} No Sidewalk"),
+                const SizedBox(width: 8),
+                _obstacleChip(Icons.warning_amber_rounded, "${obstacles['nearHazard']} Near Hazard"),
               ],
             ),
           ),
