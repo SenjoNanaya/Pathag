@@ -3,7 +3,12 @@ import '../widgets/custom_nav_bar.dart';
 
 class ProfilePage extends StatefulWidget {
   final int currentIndex;
-  const ProfilePage({super.key, this.currentIndex = 0});
+  final bool showNavBar;
+  const ProfilePage({
+    super.key,
+    this.currentIndex = 0,
+    this.showNavBar = true,
+  });
 
   @override
   State<ProfilePage> createState() => _ProfilePage();
@@ -194,7 +199,9 @@ class _ProfilePage extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _buildBody(),
-      bottomNavigationBar: CustomNavBar(selectedIndex: widget.currentIndex),
+      bottomNavigationBar: widget.showNavBar
+          ? CustomNavBar(selectedIndex: widget.currentIndex)
+          : null,
     );
   }
 }

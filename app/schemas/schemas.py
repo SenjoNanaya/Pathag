@@ -15,6 +15,7 @@ class PathCondition(str, Enum):
     SMOOTH = "smooth"
     CRACKED = "cracked"
     UNEVEN = "uneven"
+    NEAR_HAZARD = "near_hazard"
     OBSTRUCTED = "obstructed"
     NO_SIDEWALK = "no_sidewalk"
     UNDER_CONSTRUCTION = "under_construction"
@@ -123,6 +124,15 @@ class RouteObstacleDiagnostics(BaseModel):
     notes: List[str] = []
 
 
+class RouteAlternativeResponse(BaseModel):
+    distance_meters: float
+    estimated_duration_seconds: int
+    accessibility_score: float
+    coordinates: List[List[float]]
+    steps: List[RouteStep]
+    warnings: List[str] = []
+
+
 class RouteResponse(BaseModel):
     id: Optional[int] = None
     distance_meters: float
@@ -132,6 +142,7 @@ class RouteResponse(BaseModel):
     steps: List[RouteStep]
     warnings: List[str] = []
     obstacle_diagnostics: Optional[RouteObstacleDiagnostics] = None
+    alternative_routes: List[RouteAlternativeResponse] = Field(default_factory=list)
 
 
 # Obstacle Schemas

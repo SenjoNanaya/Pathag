@@ -32,6 +32,7 @@ class PathCondition(str, enum.Enum):
     SMOOTH = "smooth"
     CRACKED = "cracked"
     UNEVEN = "uneven"
+    NEAR_HAZARD = "near_hazard"
     OBSTRUCTED = "obstructed"
     NO_SIDEWALK = "no_sidewalk"
     UNDER_CONSTRUCTION = "under_construction"

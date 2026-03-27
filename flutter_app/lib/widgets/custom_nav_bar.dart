@@ -6,8 +6,13 @@ import '../screen/report.dart';
 
 class CustomNavBar extends StatelessWidget {
   final int selectedIndex;
+  final ValueChanged<int>? onTapIndex;
 
-  const CustomNavBar({super.key, required this.selectedIndex});
+  const CustomNavBar({
+    super.key,
+    required this.selectedIndex,
+    this.onTapIndex,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +65,10 @@ class CustomNavBar extends StatelessWidget {
       child: InkWell(
         onTap: () {
           if (active) return;
+          if (onTapIndex != null) {
+            onTapIndex!(index);
+            return;
+          }
           NavHandler.goToPage(context, targetPage);
         },
         child: Column(
