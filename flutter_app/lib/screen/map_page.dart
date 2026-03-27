@@ -61,7 +61,7 @@ class _MapPage extends State<MapPage> {
   List<_NavigationStep> _navigationSteps = [];
   int _activeStepIndex = 0;
 
-  static const String _httpBaseUrl = "https://pathag-api.fly.dev/";
+  static const String _httpBaseUrl = "https://pathag-api.fly.dev";
 
   final Map<String, LatLng> uplbLandmarks = {
     'uplb gate': const LatLng(14.1675, 121.2431),
