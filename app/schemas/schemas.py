@@ -131,6 +131,8 @@ class RouteAlternativeResponse(BaseModel):
     coordinates: List[List[float]]
     steps: List[RouteStep]
     warnings: List[str] = []
+    force_not_recommended: bool = False
+    not_recommended_reasons: List[str] = []
 
 
 class RouteResponse(BaseModel):

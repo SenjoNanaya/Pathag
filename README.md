@@ -18,8 +18,10 @@ Base URL: `http://localhost:8000`
 
 - `POST /api/v1/ml/classify-image`
   - combined image classification (path + obstacle + obstruction gate)
+- `GET /api/v1/ml/status`
+  - reports if ML is enabled/disabled for the deployment
 - `POST /api/v1/routes/calculate`
-  - accessibility-aware route scoring (prototype)
+  - accessibility-aware route scoring (prototype) with optional alternatives payload
 - `POST /api/v1/obstacles/reports`
   - accepts `report_kind`, `report_subtype`, and `subtype_source`
 - `POST /api/v1/obstacles/reports/{report_id}/verify`
@@ -30,6 +32,90 @@ Base URL: `http://localhost:8000`
   - grid heatmap export for a bbox
 
 Note: `auth` and `users` route modules are currently scaffolds.
+
+## Recent implementation updates
+
+### 1) Demo-safe ML feature flag (backend)
+
+ML can now be disabled for low-resource demo deployments.
+
+- `ML_ENABLED` feature flag added in backend settings.
+- ML warmup is skipped when `ML_ENABLED=false`.
+- ML route inclusion is conditional.
+- Realtime obstacle websocket now returns a clear disabled error when ML is off.
+- Added `GET /api/v1/ml/status` for explicit operational visibility.
+
+Recommended `.env` for demo:
+
+```bash
+ML_ENABLED=false
+ML_WARMUP_ON_STARTUP=false
+```
+
+### 2) Route alternatives with backward compatibility
+
+`POST /api/v1/routes/calculate` remains backward compatible:
+
+- Existing clients still use the main route fields:
+  - `coordinates`
+  - `steps`
+  - `accessibility_score`
+  - `estimated_duration_seconds`
+- New clients can also read:
+  - `alternative_routes` (0..N alternatives)
+
+Alternative route schema now supports:
+
+- `distance_meters`
+- `estimated_duration_seconds`
+- `accessibility_score`
+- `coordinates`
+- `steps`
+- `warnings`
+- `force_not_recommended` (optional behavior flag)
+- `not_recommended_reasons` (optional UI-ready reasons)
+
+### 3) Forced baseline "not recommended" route
+
+To support explainability in demos, backend now force-includes a baseline route:
+
+- Baseline route = shortest-distance candidate (proxy for pre-report route choice).
+- If baseline differs from the selected best route, it is injected into `alternative_routes`.
+- Baseline alternative is tagged:
+  - `force_not_recommended=true`
+  - `not_recommended_reasons=["This route is the shortest-distance baseline before report-aware optimization."]`
+
+This allows frontend to always present a "what you might have taken without report-aware optimization" route.
+
+### 4) Flutter route selection + route quality explanation
+
+`flutter_app/lib/screen/map_page.dart` now supports:
+
+- Route chips in bottom sheet:
+  - `Best`, `Alt 1`, `Alt 2` (as available)
+- Explicit route selection before navigation starts.
+- Selected route updates:
+  - map preview line
+  - ETA
+  - accessibility score
+  - obstacle summary chips
+- "Not Recommended" labeling for alternatives when:
+  - accessibility is lower than Best by >= 5%, or
+  - severe conditions are worse than Best (`obstructed`, `no_sidewalk`, `uneven/cracked`)
+- Forced backend flag support:
+  - if `force_not_recommended=true`, route is always labeled not recommended
+  - if backend sends `not_recommended_reasons`, those are shown first
+- Why panel examples:
+  - `+2 blocked segments`
+  - `-7% accessibility`
+  - `+3 min longer`
+
+### 5) Hazard visualization rollback
+
+Near-hazard amber band behavior was rolled back to reduce over-flagging:
+
+- Segment highlighting now stays strict to on-path obstacle proximity.
+- Near-hazard summary chip removed from map bottom sheet.
 
 ## Safety and data quality
 
@@ -94,6 +180,8 @@ OBSTACLE_VERIFICATION_THRESHOLD=2
 OBSTACLE_ROUTE_BUFFER_METERS=50
 
 ML_DEVICE=cpu
+ML_ENABLED=true
+ML_WARMUP_ON_STARTUP=true
 ML_CHECKPOINT_PATH=
 OBSTACLE_ML_CHECKPOINT_PATH=
 OBSTRUCTION_VERIFIER_ML_CHECKPOINT_PATH=
@@ -188,3 +276,14 @@ Notes:
 
 `flutter_app/` contains a prototype client that can call routing and obstacle-related backend endpoints.
 Adjust backend base URL in `flutter_app/lib/screen/map_page.dart` as needed.
+
+## Deployment notes
+
+- Fly.io + Supabase deployment guides:
+  - `docs/DEPLOY_FLY_SUPABASE.md`
+  - `docs/DEPLOY_RENDER_SUPABASE.md`
+- If using Supabase Postgres from scratch, initialize schema with:
+
+```bash
+python scripts/init_supabase_schema.py
+```
