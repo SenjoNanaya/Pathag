@@ -39,7 +39,7 @@ class _ProfilePage extends State<ProfilePage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: const Color(0xFFF0F1F8),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.grey[300]!),
       ),
@@ -56,7 +56,7 @@ class _ProfilePage extends State<ProfilePage> {
               ),
               Text(
                 subtitle,
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: const TextStyle(color: Color.fromARGB(255, 108, 107, 107), fontSize: 12),
               ),
             ],
           ),
@@ -110,7 +110,7 @@ class _ProfilePage extends State<ProfilePage> {
               Text (
                 "Pathag will avoid these micro-impediments during navigation.",
                 style: TextStyle(
-                  color: Colors.grey,
+                  color: Color.fromARGB(255, 143, 143, 143),
                   fontSize: 12
                 ),
               ),

@@ -21,7 +21,8 @@ class Pathag extends StatelessWidget {
       title: 'Pathag: A People-Centric Navigation',
       theme: ThemeData(
         fontFamily: 'Helvetica',
-        primaryColor: Colors.blue[800]
+        primaryColor: Colors.blue[800],
+        scaffoldBackgroundColor: Colors.white
       ),
       initialRoute: '/',
       routes: {
