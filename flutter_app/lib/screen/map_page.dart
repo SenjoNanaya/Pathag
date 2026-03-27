@@ -34,6 +34,8 @@ class _RouteAlternativeResult {
   final int estimatedDurationSeconds;
   final double distanceMeters;
   final List<String> warnings;
+  final bool forceNotRecommended;
+  final List<String> serverNotRecommendedReasons;
   final List<_NavigationStep> steps;
 
   _RouteAlternativeResult({
@@ -42,8 +44,24 @@ class _RouteAlternativeResult {
     required this.estimatedDurationSeconds,
     required this.distanceMeters,
     required this.warnings,
+    required this.forceNotRecommended,
+    required this.serverNotRecommendedReasons,
     required this.steps,
   });
+}
+
+class _RouteIssueStats {
+  final int blocked;
+  final int noSidewalk;
+  final int uneven;
+
+  const _RouteIssueStats({
+    required this.blocked,
+    required this.noSidewalk,
+    required this.uneven,
+  });
+
+  int get totalSevere => blocked + noSidewalk + uneven;
 }
 
 class _NavigationStep {
@@ -105,7 +123,6 @@ class _MapPage extends State<MapPage> {
       "noSidewalk": 0,
       "unevenPath": 0,
       "obstruction": 0,
-      "nearHazard": 0,
     }
   };
   String _routeEtaLabel = "Estimated -- mins walk";
@@ -113,13 +130,12 @@ class _MapPage extends State<MapPage> {
   static const double _defaultZoom = 16.0;
   static const double _routeFocusZoom = 18.8;
   static const double _navigationZoom = 19.8;
+  static const double _notRecommendedScoreGap = 0.05; // 5%
 
   // === | NAVIGATION LOGIC | ===
 
   Color _segmentColor(String pathCondition) {
     switch (pathCondition.toLowerCase()) {
-      case 'near_hazard':
-        return Colors.amber;
       case 'uneven':
         return Colors.yellow;
       case 'cracked':
@@ -167,17 +183,7 @@ class _MapPage extends State<MapPage> {
     int selectedIndex = 0,
   }) {
     final polylines = <Polyline>[];
-    final allRoutes = <_RouteAlternativeResult>[
-      _RouteAlternativeResult(
-        coordinates: routeResult.coordinates,
-        accessibilityScore: routeResult.accessibilityScore,
-        estimatedDurationSeconds: routeResult.estimatedDurationSeconds,
-        distanceMeters: routeResult.distanceMeters,
-        warnings: routeResult.warnings,
-        steps: routeResult.steps,
-      ),
-      ...routeResult.alternatives,
-    ];
+    final allRoutes = _allRoutes(routeResult);
 
     for (var i = 0; i < allRoutes.length; i++) {
       final route = allRoutes[i];
@@ -192,6 +198,103 @@ class _MapPage extends State<MapPage> {
       );
     }
     return polylines;
+  }
+
+  List<_RouteAlternativeResult> _allRoutes(_RouteResult routeResult) {
+    return <_RouteAlternativeResult>[
+      _RouteAlternativeResult(
+        coordinates: routeResult.coordinates,
+        accessibilityScore: routeResult.accessibilityScore,
+        estimatedDurationSeconds: routeResult.estimatedDurationSeconds,
+        distanceMeters: routeResult.distanceMeters,
+        warnings: routeResult.warnings,
+        forceNotRecommended: false,
+        serverNotRecommendedReasons: const [],
+        steps: routeResult.steps,
+      ),
+      ...routeResult.alternatives,
+    ];
+  }
+
+  _RouteIssueStats _issueStatsForSteps(List<_NavigationStep> steps) {
+    var blocked = 0;
+    var noSidewalk = 0;
+    var uneven = 0;
+    for (final step in steps) {
+      final condition = step.pathCondition.toLowerCase();
+      if (condition == 'obstructed') {
+        blocked += 1;
+      } else if (condition == 'no_sidewalk') {
+        noSidewalk += 1;
+      } else if (condition == 'uneven' || condition == 'cracked') {
+        uneven += 1;
+      }
+    }
+    return _RouteIssueStats(
+      blocked: blocked,
+      noSidewalk: noSidewalk,
+      uneven: uneven,
+    );
+  }
+
+  bool _isRouteNotRecommended({
+    required _RouteAlternativeResult best,
+    required _RouteAlternativeResult candidate,
+  }) {
+    if (candidate.forceNotRecommended) {
+      return true;
+    }
+    final scoreGap = best.accessibilityScore - candidate.accessibilityScore;
+    final bestStats = _issueStatsForSteps(best.steps);
+    final candidateStats = _issueStatsForSteps(candidate.steps);
+    return scoreGap >= _notRecommendedScoreGap ||
+        candidateStats.totalSevere > bestStats.totalSevere;
+  }
+
+  List<String> _notRecommendedReasons({
+    required _RouteAlternativeResult best,
+    required _RouteAlternativeResult candidate,
+  }) {
+    if (candidate.forceNotRecommended &&
+        candidate.serverNotRecommendedReasons.isNotEmpty) {
+      return candidate.serverNotRecommendedReasons;
+    }
+    final reasons = <String>[];
+    final bestStats = _issueStatsForSteps(best.steps);
+    final candidateStats = _issueStatsForSteps(candidate.steps);
+
+    final blockedDelta = candidateStats.blocked - bestStats.blocked;
+    if (blockedDelta > 0) {
+      reasons.add('+$blockedDelta blocked segments');
+    }
+
+    final noSidewalkDelta = candidateStats.noSidewalk - bestStats.noSidewalk;
+    if (noSidewalkDelta > 0) {
+      reasons.add('+$noSidewalkDelta no-sidewalk segments');
+    }
+
+    final unevenDelta = candidateStats.uneven - bestStats.uneven;
+    if (unevenDelta > 0) {
+      reasons.add('+$unevenDelta uneven segments');
+    }
+
+    final scoreGap = best.accessibilityScore - candidate.accessibilityScore;
+    if (scoreGap >= _notRecommendedScoreGap) {
+      final scoreDropPercent = (scoreGap * 100).round();
+      reasons.add('-$scoreDropPercent% accessibility');
+    }
+
+    final minutesDelta =
+        ((candidate.estimatedDurationSeconds - best.estimatedDurationSeconds) / 60)
+            .ceil();
+    if (minutesDelta > 0) {
+      reasons.add('+$minutesDelta min longer');
+    }
+
+    if (reasons.isEmpty) {
+      reasons.add('Lower overall route quality than Best');
+    }
+    return reasons;
   }
 
   Future<void> _searchLocations() async {
@@ -273,7 +376,6 @@ class _MapPage extends State<MapPage> {
     int noSidewalk = 0;
     int unevenPath = 0;
     int obstruction = 0;
-    int nearHazard = 0;
 
     // Count segment issues from step path labels (ground truth for drawn route),
     // not from free-text warnings which may include nearby/non-segment context.
@@ -285,8 +387,6 @@ class _MapPage extends State<MapPage> {
         noSidewalk += 1;
       } else if (condition == 'obstructed') {
         obstruction += 1;
-      } else if (condition == 'near_hazard') {
-        nearHazard += 1;
       }
     }
 
@@ -323,7 +423,6 @@ class _MapPage extends State<MapPage> {
         "noSidewalk": noSidewalk,
         "unevenPath": unevenPath,
         "obstruction": obstruction,
-        "nearHazard": nearHazard,
       }
     };
   }
@@ -333,17 +432,7 @@ class _MapPage extends State<MapPage> {
     if (routeResult == null) {
       return;
     }
-    final allRoutes = <_RouteAlternativeResult>[
-      _RouteAlternativeResult(
-        coordinates: routeResult.coordinates,
-        accessibilityScore: routeResult.accessibilityScore,
-        estimatedDurationSeconds: routeResult.estimatedDurationSeconds,
-        distanceMeters: routeResult.distanceMeters,
-        warnings: routeResult.warnings,
-        steps: routeResult.steps,
-      ),
-      ...routeResult.alternatives,
-    ];
+    final allRoutes = _allRoutes(routeResult);
     if (routeIndex < 0 || routeIndex >= allRoutes.length) {
       return;
     }
@@ -451,6 +540,12 @@ class _MapPage extends State<MapPage> {
             warnings: ((alt['warnings'] as List?) ?? const [])
                 .map((e) => e.toString())
                 .toList(),
+            forceNotRecommended:
+                (alt['force_not_recommended'] as bool?) ?? false,
+            serverNotRecommendedReasons:
+                ((alt['not_recommended_reasons'] as List?) ?? const [])
+                    .map((e) => e.toString())
+                    .toList(),
             steps: altSteps,
           ),
         );
@@ -601,6 +696,17 @@ class _MapPage extends State<MapPage> {
     final obstacles = pathSummary["obstaclesEncountered"];
     final routeResult = _latestRouteResult;
     final routeCount = routeResult == null ? 0 : (1 + routeResult.alternatives.length);
+    final allRoutes = routeResult == null ? <_RouteAlternativeResult>[] : _allRoutes(routeResult);
+    final hasBestAndSelected = allRoutes.isNotEmpty && _selectedRouteIndex < allRoutes.length;
+    final bestRoute = hasBestAndSelected ? allRoutes[0] : null;
+    final selectedRoute = hasBestAndSelected ? allRoutes[_selectedRouteIndex] : null;
+    final showNotRecommended = bestRoute != null &&
+        selectedRoute != null &&
+        _selectedRouteIndex > 0 &&
+        _isRouteNotRecommended(best: bestRoute, candidate: selectedRoute);
+    final notRecommendedReasons = showNotRecommended
+        ? _notRecommendedReasons(best: bestRoute, candidate: selectedRoute)
+        : const <String>[];
     
     return Container(
       decoration: const BoxDecoration(
@@ -638,20 +744,94 @@ class _MapPage extends State<MapPage> {
                 children: List.generate(routeCount, (index) {
                   final label = index == 0 ? "Best" : "Alt $index";
                   final selected = _selectedRouteIndex == index;
+                  final route = allRoutes[index];
+                  final best = allRoutes[0];
+                  final notRecommended = index > 0 &&
+                      _isRouteNotRecommended(best: best, candidate: route);
                   return Padding(
                     padding: EdgeInsets.only(right: index == routeCount - 1 ? 0 : 8),
                     child: ChoiceChip(
-                      label: Text(label),
+                      label: Text(notRecommended ? "$label (Not Recommended)" : label),
                       selected: selected,
                       onSelected: (_) => onSelectRoute(index),
-                      selectedColor: Colors.blue[800],
+                      selectedColor: selected
+                          ? (notRecommended ? Colors.red[700] : Colors.blue[800])
+                          : null,
+                      side: notRecommended
+                          ? BorderSide(color: Colors.red[300]!, width: 1)
+                          : null,
                       labelStyle: TextStyle(
-                        color: selected ? Colors.white : Colors.blue[900],
+                        color: selected
+                            ? Colors.white
+                            : (notRecommended ? Colors.red[700] : Colors.blue[900]),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   );
                 }),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          if (showNotRecommended) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red[100]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Not Recommended",
+                    style: TextStyle(
+                      color: Colors.red[800],
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Why not recommended",
+                    style: TextStyle(
+                      color: Colors.red[700],
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: notRecommendedReasons
+                        .map(
+                          (reason) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(color: Colors.red[100]!),
+                            ),
+                            child: Text(
+                              reason,
+                              style: TextStyle(
+                                color: Colors.red[800],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -667,8 +847,6 @@ class _MapPage extends State<MapPage> {
                 _obstacleChip(Icons.construction_rounded, "${obstacles['obstruction']} Blocked"),
                 const SizedBox(width: 8),
                 _obstacleChip(Icons.do_not_disturb_on_rounded, "${obstacles['noSidewalk']} No Sidewalk"),
-                const SizedBox(width: 8),
-                _obstacleChip(Icons.warning_amber_rounded, "${obstacles['nearHazard']} Near Hazard"),
               ],
             ),
           ),

@@ -115,6 +115,45 @@ class RoutingService:
         )
 
         alternatives: List[RouteAlternativeResponse] = []
+        added_alt_indexes: set[int] = set()
+
+        # Force-include the "no reports" baseline route:
+        # this approximates the route chooser before accessibility-report influence
+        # by taking the shortest-distance candidate.
+        baseline_candidate = min(
+            candidate_evals,
+            key=lambda c: float(c.get("distance", float("inf"))),
+        )
+        baseline_idx = int(baseline_candidate["idx"])
+        if best_idx is None or baseline_idx != best_idx:
+            baseline_coordinates = baseline_candidate["coordinates"]
+            baseline_obstacles = baseline_candidate["obstacles"]
+            baseline_distance = float(baseline_candidate["distance"])
+            baseline_steps = self._generate_route_steps(
+                baseline_coordinates,
+                baseline_obstacles,
+            )
+            baseline_warnings = self._generate_warnings(
+                request,
+                baseline_obstacles,
+                user,
+            )
+            alternatives.append(
+                RouteAlternativeResponse(
+                    distance_meters=baseline_distance,
+                    estimated_duration_seconds=self._estimate_duration(baseline_distance),
+                    accessibility_score=float(baseline_candidate["accessibility"]),
+                    coordinates=baseline_coordinates,
+                    steps=baseline_steps,
+                    warnings=baseline_warnings,
+                    force_not_recommended=True,
+                    not_recommended_reasons=[
+                        "This route is the shortest-distance baseline before report-aware optimization."
+                    ],
+                )
+            )
+            added_alt_indexes.add(baseline_idx)
+
         sorted_candidates = sorted(
             candidate_evals,
             key=lambda c: float(c.get("blended", -999.0)),
@@ -122,6 +161,9 @@ class RoutingService:
         )
         for candidate in sorted_candidates:
             if best_idx is not None and int(candidate["idx"]) == best_idx:
+                continue
+            candidate_idx = int(candidate["idx"])
+            if candidate_idx in added_alt_indexes:
                 continue
             alt_coordinates = candidate["coordinates"]
             alt_obstacles = candidate["obstacles"]
@@ -138,6 +180,7 @@ class RoutingService:
                     warnings=alt_warnings,
                 )
             )
+            added_alt_indexes.add(candidate_idx)
             # Keep payload compact for mobile while still exposing choices.
             if len(alternatives) >= 2:
                 break
@@ -1082,8 +1125,6 @@ class RoutingService:
         steps = []
         segment_count = len(coordinates) - 1
         on_path_m = 12.0
-        near_hazard_m = float(settings.ROUTE_SCORE_OBSTACLE_NEAR_LEG_M)
-        yes_obs = [o for o in obstacles if o.obstacle_type == ObstacleType.YES]
 
         # Assign each obstacle only to its nearest local segment(s), instead of
         # letting every segment independently "see" the same obstacle.
@@ -1142,18 +1183,6 @@ class RoutingService:
                 nearest_obstacle = assigned[0]
                 path_condition = self._path_condition_from_obstacle(nearest_obstacle)
                 instruction += f" (⚠️ {nearest_obstacle.obstacle_type.value} reported ahead)"
-            elif yes_obs and near_hazard_m > on_path_m:
-                # Align map visuals with score penalties: show an amber "near hazard"
-                # band for hazards that are close enough to affect score but not close
-                # enough to be treated as on-segment impediments.
-                min_yes_dist = float("inf")
-                for o in yes_obs:
-                    d = self._distance_obstacle_to_segment_m(o, lat1, lon1, lat2, lon2)
-                    if d < min_yes_dist:
-                        min_yes_dist = d
-                if on_path_m < min_yes_dist <= near_hazard_m:
-                    path_condition = PathCondition.NEAR_HAZARD
-                    instruction += " (⚠️ nearby reported hazard)"
             
             step = RouteStep(
                 distance=segment_distance,
