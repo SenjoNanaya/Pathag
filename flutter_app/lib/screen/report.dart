@@ -27,7 +27,7 @@ class _ReportPage extends State<ReportPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
 
-  static const String _httpBaseUrl = "https://pathag-api.fly.dev/";
+  static const String _httpBaseUrl = "https://pathag-api.fly.dev";
 
   String? selectedCategory;
   final TextEditingController _locationController = TextEditingController();
