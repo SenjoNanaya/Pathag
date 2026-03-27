@@ -14,3 +14,4 @@ obstacle_dataset/
 
 # Local uploads/runtime files
 uploads/
+db_migration_reporter_id_nullable.sql

@@ -11,9 +11,44 @@ This guide wires the FastAPI backend to **Supabase PostgreSQL** (with **PostGIS*
    create extension if not exists postgis;
    ```
 
-3. Apply your schema the same way you did locally, for example:
-   - Run any existing SQL migrations (e.g. `db_migration_add_subtypes.sql` and table-creation scripts you use).
-   - Ensure enums/tables match `app/models/models.py` (or use Alembic if you have migrations checked in).
+3. **Apply the Pathag schema** (pick one path).
+
+   ### Fresh Supabase project (no tables yet) — recommended
+
+   Tables are defined in SQLAlchemy (`app/models/models.py`); there is no single `schema.sql` in the repo.
+
+   1. Keep step 2 (`postgis` extension) done.
+   2. On your machine, point `DATABASE_URL` at Supabase (same URI you will use in production):
+      - Copy **Settings → Database → Connection string → URI** (direct `5432` is easiest for this one-off script).
+      - Put it in project-root `.env` as `DATABASE_URL=...` or export it in the shell.
+   3. From the **repository root** (with venv active and `pip install -r requirements.txt` already done):
+
+      ```bash
+      py scripts/init_supabase_schema.py
+      ```
+
+      This runs `Base.metadata.create_all(..., checkfirst=True)` and creates, among others:
+      `users`, `path_segments`, `obstacle_reports`, `path_validations`, `routes`, `obstacle_verifications`.
+
+   4. **Reporter column (optional SQL):** If you ever created `obstacle_reports` before `reporter_id` was nullable, run:
+
+      ```bash
+      psql "<your-supabase-uri>" -f db_migration_reporter_id_nullable.sql
+      ```
+
+      On a brand-new DB created only via the script above, `reporter_id` is already nullable — you can skip this.
+
+   5. **Do not** run `db_migration_add_subtypes.sql` on a brand-new DB created by `init_supabase_schema.py` unless you know you need it — that migration targets **older** databases that lacked `report_kind` / `report_subtype` / `subtype_source`. The init script already creates those columns from the models.
+
+   ### Migrating from an existing local Postgres
+
+   Use a schema + data dump instead of the Python script, for example:
+
+   ```bash
+   pg_dump "postgresql://pathag:pathag@localhost:5432/pathag" --no-owner --no-acl -F p -f pathag_dump.sql
+   ```
+
+   Then in Supabase **SQL Editor**, run PostGIS (`create extension if not exists postgis;`) first, then apply the dump in chunks or via `psql` against the Supabase URI. Review the dump for roles/extensions Supabase does not allow.
 
 4. Get the **connection string**:
    - **Project Settings → Database → Connection string → URI**.
