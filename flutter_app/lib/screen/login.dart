@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_app/screen/map_test.dart';
 import 'map_page.dart';
 import '../screen/signup.dart';
 
@@ -129,6 +130,7 @@ class _LoginPage extends State<LoginPage> {
                     if (_formKey.currentState!.validate()) {
                       debugPrint("Logging in with $email");
                       Navigator.push(context, MaterialPageRoute(builder: (context) => MapPage()));
+                      // [UNCOMMENT THIS IF CALCULATION ERROR PERSISTS, COMMENT THE ONE ABOVE] Navigator.push(context, MaterialPageRoute(builder: (context) => MapTest()));
                     }
                   },
                   style: ElevatedButton.styleFrom(

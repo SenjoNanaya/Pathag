@@ -30,6 +30,7 @@ from app.models.models import (
     SubtypeSource,
     ObstacleType,
     ObstacleVerification,
+    User,
 )
 from app.schemas.schemas import (
     ObstacleVerificationTemplate,
@@ -40,11 +41,6 @@ from app.schemas.schemas import (
     ObstacleResolveCreate,
     ObstacleVerificationCreate,
     ObstacleClassificationResponse,
-)
-from app.services.obstacle_classification import get_obstacle_classifier
-from app.services.verifier_classification import (
-    get_obstruction_verifier,
-    get_surface_problem_verifier,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,6 +77,19 @@ def create_obstacle_report(
     payload: ObstacleReportCreate,
     db: Session = Depends(get_db),
 ) -> ObstacleReportResponse:
+    reporter_id = payload.reporter_id
+    # Swagger/UI sometimes submits `0` for "empty" numeric fields.
+    if reporter_id == 0:
+        reporter_id = None
+
+    if reporter_id is not None:
+        exists = db.query(User.id).filter(User.id == reporter_id).first()
+        if exists is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"reporter_id={reporter_id} does not exist in users.",
+            )
+
     report = ObstacleReport(
         location=_wkt_point(payload.longitude, payload.latitude),
         latitude=payload.latitude,
@@ -95,7 +104,7 @@ def create_obstacle_report(
         image_url=None,
         is_verified=False,
         is_resolved=False,
-        reporter_id=payload.reporter_id,
+        reporter_id=reporter_id,
     )
 
     db.add(report)
@@ -356,6 +365,19 @@ async def realtime_obstacle_stream(websocket: WebSocket) -> None:
     """
 
     await websocket.accept()
+    if not settings.ML_ENABLED:
+        await websocket.send_text(
+            json.dumps({"error": "Realtime ML stream disabled (ML_ENABLED=false)"})
+        )
+        await websocket.close(code=1008)
+        return
+
+    from app.services.obstacle_classification import get_obstacle_classifier
+    from app.services.verifier_classification import (
+        get_obstruction_verifier,
+        get_surface_problem_verifier,
+    )
+
     classifier = get_obstacle_classifier()
     obstruction_verifier = get_obstruction_verifier()
     surface_problem_verifier = get_surface_problem_verifier()
