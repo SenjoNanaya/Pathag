@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE: int = 5 * 1024 * 1024  # 5MB
 
+    # Global ML switch. Set false on tiny hosts for non-ML demos.
+    ML_ENABLED: bool = True
+
     # MobileNetV3 path classification (PyTorch)
     ML_DEVICE: str = "cpu"
     # On small hosts (e.g. Render starter), set false to defer torch model load until first ML request.

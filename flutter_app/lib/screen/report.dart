@@ -27,9 +27,7 @@ class _ReportPage extends State<ReportPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
 
-  // Android emulator cannot reach host machine via localhost.
-  static String get _httpBaseUrl =>
-      Platform.isAndroid ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+  static const String _httpBaseUrl = "https://pathag-api.fly.dev/";
 
   String? selectedCategory;
   final TextEditingController _locationController = TextEditingController();
@@ -179,8 +177,6 @@ class _ReportPage extends State<ReportPage> {
     _commentController.dispose();
     super.dispose();
   }
-
-  // === | UI HELPERS | ===
 
   Widget _sectionHeader(String text) {
     return Text(

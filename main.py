@@ -6,7 +6,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.routes import ml_combined
 from app.routes import routes as routing_routes
 from app.routes import auth as auth_routes
 from app.routes import users as users_routes
@@ -21,7 +20,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting Pathag backend")
-    if settings.ML_WARMUP_ON_STARTUP:
+    if not settings.ML_ENABLED:
+        logger.info("ML disabled (ML_ENABLED=false)")
+    elif settings.ML_WARMUP_ON_STARTUP:
         from app.services.path_classification import get_path_classifier
 
         get_path_classifier()
@@ -50,6 +51,25 @@ app = FastAPI(
 def health():
     return {"status": "ok"}
 
+
+@app.get(
+    "/api/v1/ml/status",
+    tags=["ml"],
+    summary="ML feature flag status for demos/operations.",
+)
+def ml_status():
+    if settings.ML_ENABLED:
+        return {
+            "ml_enabled": True,
+            "status": "enabled",
+            "message": "ML endpoints are enabled.",
+        }
+    return {
+        "ml_enabled": False,
+        "status": "disabled",
+        "message": "ML is disabled for this deployment.",
+    }
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -62,11 +82,14 @@ uploads_path = Path(settings.UPLOAD_DIR)
 uploads_path.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
 
-app.include_router(
-    ml_combined.router,
-    prefix="/api/v1/ml",
-    tags=["ml"],
-)
+if settings.ML_ENABLED:
+    from app.routes import ml_combined
+
+    app.include_router(
+        ml_combined.router,
+        prefix="/api/v1/ml",
+        tags=["ml"],
+    )
 
 app.include_router(
     auth_routes.router,
