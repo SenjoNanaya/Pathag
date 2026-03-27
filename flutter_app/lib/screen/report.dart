@@ -6,6 +6,7 @@ import '../widgets/custom_nav_bar.dart';
 
 class ReportPage extends StatefulWidget {
   final int currentIndex;
+  final bool showNavBar;
   final double? initialLatitude;
   final double? initialLongitude;
   final String? initialLocationLabel;
@@ -13,6 +14,7 @@ class ReportPage extends StatefulWidget {
   const ReportPage({
     super.key,
     this.currentIndex = 2,
+    this.showNavBar = true,
     this.initialLatitude,
     this.initialLongitude,
     this.initialLocationLabel,
@@ -369,7 +371,9 @@ class _ReportPage extends State<ReportPage> {
         padding: const EdgeInsets.all(20),
         child: _buildForm()
       ),
-      bottomNavigationBar: CustomNavBar(selectedIndex: widget.currentIndex),
+      bottomNavigationBar: widget.showNavBar
+          ? CustomNavBar(selectedIndex: widget.currentIndex)
+          : null,
     );
   }
 }

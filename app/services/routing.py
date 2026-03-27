@@ -27,6 +27,7 @@ from app.models.models import (
 from app.config import settings
 from app.schemas.schemas import (
     Coordinate,
+    RouteAlternativeResponse,
     RouteObstacleDiagnostics,
     RouteRequest,
     RouteResponse,
@@ -49,12 +50,13 @@ class RoutingService:
         route_candidates = await self._generate_route_candidates(request.origin, request.destination)
 
         best = None
+        best_idx: Optional[int] = None
         best_score = -1.0
         min_distance: Optional[float] = None
         candidate_evals: List[Dict[str, object]] = []
 
         # 2) Score each candidate by accessibility and select the best.
-        for coordinates in route_candidates:
+        for idx, coordinates in enumerate(route_candidates):
             obstacles = self._get_obstacles_along_route(coordinates, buffer_meters=settings.OBSTACLE_ROUTE_BUFFER_METERS)
             distance = self._calculate_route_distance(coordinates)
             accessibility_score = self._calculate_accessibility_score(
@@ -65,6 +67,7 @@ class RoutingService:
             )
             candidate_evals.append(
                 {
+                    "idx": idx,
                     "coordinates": coordinates,
                     "obstacles": obstacles,
                     "distance": distance,
@@ -84,9 +87,12 @@ class RoutingService:
             detour_ratio = max(0.0, (distance - min_distance) / max(min_distance, 1.0))
             detour_penalty = min(0.40, detour_ratio * 0.20)
             blended_score = accessibility_score - detour_penalty
+            candidate["blended"] = blended_score
             if blended_score > best_score:
                 best_score = blended_score
+                best_idx = int(candidate["idx"])
                 best = {
+                    "idx": int(candidate["idx"]),
                     "coordinates": candidate["coordinates"],
                     "obstacles": candidate["obstacles"],
                     "distance": distance,
@@ -108,6 +114,34 @@ class RoutingService:
             eligible_obstacles=obstacles,
         )
 
+        alternatives: List[RouteAlternativeResponse] = []
+        sorted_candidates = sorted(
+            candidate_evals,
+            key=lambda c: float(c.get("blended", -999.0)),
+            reverse=True,
+        )
+        for candidate in sorted_candidates:
+            if best_idx is not None and int(candidate["idx"]) == best_idx:
+                continue
+            alt_coordinates = candidate["coordinates"]
+            alt_obstacles = candidate["obstacles"]
+            alt_distance = float(candidate["distance"])
+            alt_steps = self._generate_route_steps(alt_coordinates, alt_obstacles)
+            alt_warnings = self._generate_warnings(request, alt_obstacles, user)
+            alternatives.append(
+                RouteAlternativeResponse(
+                    distance_meters=alt_distance,
+                    estimated_duration_seconds=self._estimate_duration(alt_distance),
+                    accessibility_score=float(candidate["accessibility"]),
+                    coordinates=alt_coordinates,
+                    steps=alt_steps,
+                    warnings=alt_warnings,
+                )
+            )
+            # Keep payload compact for mobile while still exposing choices.
+            if len(alternatives) >= 2:
+                break
+
         return RouteResponse(
             distance_meters=distance,
             estimated_duration_seconds=duration,
@@ -116,6 +150,7 @@ class RoutingService:
             steps=steps,
             warnings=warnings,
             obstacle_diagnostics=obstacle_diagnostics,
+            alternative_routes=alternatives,
         )
     
     async def _generate_route_candidates(
@@ -1046,6 +1081,9 @@ class RoutingService:
         
         steps = []
         segment_count = len(coordinates) - 1
+        on_path_m = 12.0
+        near_hazard_m = float(settings.ROUTE_SCORE_OBSTACLE_NEAR_LEG_M)
+        yes_obs = [o for o in obstacles if o.obstacle_type == ObstacleType.YES]
 
         # Assign each obstacle only to its nearest local segment(s), instead of
         # letting every segment independently "see" the same obstacle.
@@ -1062,14 +1100,14 @@ class RoutingService:
                 continue
             distances.sort(key=lambda x: x[1])
             best_distance = distances[0][1]
-            if best_distance > 12.0:
+            if best_distance > on_path_m:
                 continue
 
             # Allow spillover to at most one adjacent/near-tied segment only.
             candidate_segments = [distances[0]]
             if len(distances) > 1:
                 second_idx, second_dist = distances[1]
-                if second_dist <= 12.0 and second_dist <= best_distance + 2.5:
+                if second_dist <= on_path_m and second_dist <= best_distance + 2.5:
                     candidate_segments.append((second_idx, second_dist))
 
             for seg_idx, seg_dist in candidate_segments:
@@ -1104,6 +1142,18 @@ class RoutingService:
                 nearest_obstacle = assigned[0]
                 path_condition = self._path_condition_from_obstacle(nearest_obstacle)
                 instruction += f" (⚠️ {nearest_obstacle.obstacle_type.value} reported ahead)"
+            elif yes_obs and near_hazard_m > on_path_m:
+                # Align map visuals with score penalties: show an amber "near hazard"
+                # band for hazards that are close enough to affect score but not close
+                # enough to be treated as on-segment impediments.
+                min_yes_dist = float("inf")
+                for o in yes_obs:
+                    d = self._distance_obstacle_to_segment_m(o, lat1, lon1, lat2, lon2)
+                    if d < min_yes_dist:
+                        min_yes_dist = d
+                if on_path_m < min_yes_dist <= near_hazard_m:
+                    path_condition = PathCondition.NEAR_HAZARD
+                    instruction += " (⚠️ nearby reported hazard)"
             
             step = RouteStep(
                 distance=segment_distance,

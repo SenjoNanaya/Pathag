@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/screen/login.dart';
 import 'package:flutter_app/screen/map_test.dart';
-import 'package:flutter_app/screen/profile.dart';
-import 'package:flutter_app/screen/report.dart';
 import 'package:flutter_app/screen/signup.dart';
-import 'screen/map_page.dart';
+import 'screen/app_shell.dart';
 import '../screen/startpage.dart';
 
 
@@ -29,9 +27,9 @@ class Pathag extends StatelessWidget {
         '/start-page': (context) => const StartPage(),
         '/login': (context) => const LoginPage(),
         '/sign-up': (context) => const SignUpPage(),
-        '/navigation': (context) => const MapPage(),
-        '/profile': (context) => const ProfilePage(),
-        '/report-page': (context) => const ReportPage(),
+        '/navigation': (context) => const AppShell(initialIndex: 1),
+        '/profile': (context) => const AppShell(initialIndex: 0),
+        '/report-page': (context) => const AppShell(initialIndex: 2),
         '/map-test': (context) => const MapTest()
 
       },

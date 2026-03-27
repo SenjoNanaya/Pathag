@@ -15,8 +15,28 @@ class _RouteResult {
   final double distanceMeters;
   final List<String> warnings;
   final List<_NavigationStep> steps;
+  final List<_RouteAlternativeResult> alternatives;
 
   _RouteResult({
+    required this.coordinates,
+    required this.accessibilityScore,
+    required this.estimatedDurationSeconds,
+    required this.distanceMeters,
+    required this.warnings,
+    required this.steps,
+    required this.alternatives,
+  });
+}
+
+class _RouteAlternativeResult {
+  final List<LatLng> coordinates;
+  final double accessibilityScore;
+  final int estimatedDurationSeconds;
+  final double distanceMeters;
+  final List<String> warnings;
+  final List<_NavigationStep> steps;
+
+  _RouteAlternativeResult({
     required this.coordinates,
     required this.accessibilityScore,
     required this.estimatedDurationSeconds,
@@ -42,7 +62,12 @@ class _NavigationStep {
 
 class MapPage extends StatefulWidget {
   final int currentIndex;
-  const MapPage({super.key, this.currentIndex = 1});
+  final bool showNavBar;
+  const MapPage({
+    super.key,
+    this.currentIndex = 1,
+    this.showNavBar = true,
+  });
 
   @override
   State<MapPage> createState() => _MapPage();
@@ -60,6 +85,8 @@ class _MapPage extends State<MapPage> {
   List<Polyline> routeLines = [];
   List<_NavigationStep> _navigationSteps = [];
   int _activeStepIndex = 0;
+  _RouteResult? _latestRouteResult;
+  int _selectedRouteIndex = 0; // 0=Best, 1+=alternatives
 
   static const String _httpBaseUrl = "https://pathag-api.fly.dev";
 
@@ -77,7 +104,8 @@ class _MapPage extends State<MapPage> {
     "obstaclesEncountered": {
       "noSidewalk": 0,
       "unevenPath": 0,
-      "obstruction": 0
+      "obstruction": 0,
+      "nearHazard": 0,
     }
   };
   String _routeEtaLabel = "Estimated -- mins walk";
@@ -90,6 +118,8 @@ class _MapPage extends State<MapPage> {
 
   Color _segmentColor(String pathCondition) {
     switch (pathCondition.toLowerCase()) {
+      case 'near_hazard':
+        return Colors.amber;
       case 'uneven':
         return Colors.yellow;
       case 'cracked':
@@ -103,8 +133,12 @@ class _MapPage extends State<MapPage> {
     }
   }
 
-  List<Polyline> _buildRoutePolylines(_RouteResult routeResult) {
-    final coords = routeResult.coordinates;
+  List<Polyline> _buildSegmentPolylines(
+    List<LatLng> coords,
+    List<_NavigationStep> steps, {
+    double opacity = 1.0,
+    double strokeWidth = 6.0,
+  }) {
     if (coords.length < 2) {
       return const [];
     }
@@ -114,14 +148,46 @@ class _MapPage extends State<MapPage> {
     final polylines = <Polyline>[];
     final segmentCount = coords.length - 1;
     for (var i = 0; i < segmentCount; i++) {
-      final stepCondition = (i < routeResult.steps.length)
-          ? routeResult.steps[i].pathCondition
+      final stepCondition = (i < steps.length)
+          ? steps[i].pathCondition
           : 'smooth';
       polylines.add(
         Polyline(
           points: [coords[i], coords[i + 1]],
-          color: _segmentColor(stepCondition),
-          strokeWidth: 6.0,
+          color: _segmentColor(stepCondition).withValues(alpha: opacity),
+          strokeWidth: strokeWidth,
+        ),
+      );
+    }
+    return polylines;
+  }
+
+  List<Polyline> _buildRoutePolylines(
+    _RouteResult routeResult, {
+    int selectedIndex = 0,
+  }) {
+    final polylines = <Polyline>[];
+    final allRoutes = <_RouteAlternativeResult>[
+      _RouteAlternativeResult(
+        coordinates: routeResult.coordinates,
+        accessibilityScore: routeResult.accessibilityScore,
+        estimatedDurationSeconds: routeResult.estimatedDurationSeconds,
+        distanceMeters: routeResult.distanceMeters,
+        warnings: routeResult.warnings,
+        steps: routeResult.steps,
+      ),
+      ...routeResult.alternatives,
+    ];
+
+    for (var i = 0; i < allRoutes.length; i++) {
+      final route = allRoutes[i];
+      final isSelected = i == selectedIndex;
+      polylines.addAll(
+        _buildSegmentPolylines(
+          route.coordinates,
+          route.steps,
+          opacity: isSelected ? 1.0 : 0.35,
+          strokeWidth: isSelected ? 6.0 : 4.0,
         ),
       );
     }
@@ -150,16 +216,12 @@ class _MapPage extends State<MapPage> {
       final routeResult = await _calculateRoute(start, end);
       
       if (mounted) {
-        _updatePathSummary(routeResult);
         setState(() {
-          _navigationSteps = routeResult.steps;
-          _activeStepIndex = 0;
-          routeLines = _buildRoutePolylines(routeResult);
+          _latestRouteResult = routeResult;
+          _selectedRouteIndex = 0;
+          _applySelectedRoute(routeIndex: 0);
           _isSearching = false; 
         });
-        if (routeResult.coordinates.isNotEmpty) {
-          _mapController.move(routeResult.coordinates.first, _routeFocusZoom);
-        }
 
         _showRouteSummary();
       }
@@ -191,6 +253,8 @@ class _MapPage extends State<MapPage> {
       routeLines = [];
       _navigationSteps = [];
       _activeStepIndex = 0;
+      _selectedRouteIndex = 0;
+      _latestRouteResult = null;
       pointA = null;
       pointB = null;
       _isNavigating = false;
@@ -200,34 +264,58 @@ class _MapPage extends State<MapPage> {
 
   // == | ROUTE CALCULATION | ==
 
-  void _updatePathSummary(_RouteResult routeResult) {
+  void _updatePathSummaryFromRoute({
+    required double accessibilityScore,
+    required int estimatedDurationSeconds,
+    required List<_NavigationStep> steps,
+    required List<String> warnings,
+  }) {
     int noSidewalk = 0;
     int unevenPath = 0;
     int obstruction = 0;
+    int nearHazard = 0;
 
-    for (final warning in routeResult.warnings) {
-      final lower = warning.toLowerCase();
-      if (lower.contains('sidewalk')) {
-        noSidewalk += 1;
-      }
-      if (lower.contains('uneven') ||
-          lower.contains('broken pavement') ||
-          lower.contains('surface')) {
+    // Count segment issues from step path labels (ground truth for drawn route),
+    // not from free-text warnings which may include nearby/non-segment context.
+    for (final step in steps) {
+      final condition = step.pathCondition.toLowerCase();
+      if (condition == 'uneven' || condition == 'cracked') {
         unevenPath += 1;
-      }
-      if (lower.contains('obstacle') ||
-          lower.contains('parked vehicle') ||
-          lower.contains('vendor') ||
-          lower.contains('construction') ||
-          lower.contains('flooding') ||
-          lower.contains('stairs') ||
-          lower.contains('curb')) {
+      } else if (condition == 'no_sidewalk') {
+        noSidewalk += 1;
+      } else if (condition == 'obstructed') {
         obstruction += 1;
+      } else if (condition == 'near_hazard') {
+        nearHazard += 1;
       }
     }
 
-    final rating = (routeResult.accessibilityScore * 100).round().clamp(0, 100);
-    final minutes = (routeResult.estimatedDurationSeconds / 60).ceil();
+    // Keep warning parsing only as a fallback when route steps are unavailable.
+    if (steps.isEmpty) {
+      for (final warning in warnings) {
+        final lower = warning.toLowerCase();
+        if (lower.contains('sidewalk')) {
+          noSidewalk += 1;
+        }
+        if (lower.contains('uneven') ||
+            lower.contains('broken pavement') ||
+            lower.contains('surface')) {
+          unevenPath += 1;
+        }
+        if (lower.contains('obstacle') ||
+            lower.contains('parked vehicle') ||
+            lower.contains('vendor') ||
+            lower.contains('construction') ||
+            lower.contains('flooding') ||
+            lower.contains('stairs') ||
+            lower.contains('curb')) {
+          obstruction += 1;
+        }
+      }
+    }
+
+    final rating = (accessibilityScore * 100).round().clamp(0, 100);
+    final minutes = (estimatedDurationSeconds / 60).ceil();
     _routeEtaLabel = "Estimated $minutes min walk";
     pathSummary = {
       "rating": rating,
@@ -235,8 +323,45 @@ class _MapPage extends State<MapPage> {
         "noSidewalk": noSidewalk,
         "unevenPath": unevenPath,
         "obstruction": obstruction,
+        "nearHazard": nearHazard,
       }
     };
+  }
+
+  void _applySelectedRoute({required int routeIndex}) {
+    final routeResult = _latestRouteResult;
+    if (routeResult == null) {
+      return;
+    }
+    final allRoutes = <_RouteAlternativeResult>[
+      _RouteAlternativeResult(
+        coordinates: routeResult.coordinates,
+        accessibilityScore: routeResult.accessibilityScore,
+        estimatedDurationSeconds: routeResult.estimatedDurationSeconds,
+        distanceMeters: routeResult.distanceMeters,
+        warnings: routeResult.warnings,
+        steps: routeResult.steps,
+      ),
+      ...routeResult.alternatives,
+    ];
+    if (routeIndex < 0 || routeIndex >= allRoutes.length) {
+      return;
+    }
+
+    final selected = allRoutes[routeIndex];
+    _selectedRouteIndex = routeIndex;
+    _navigationSteps = selected.steps;
+    _activeStepIndex = 0;
+    routeLines = _buildRoutePolylines(routeResult, selectedIndex: routeIndex);
+    _updatePathSummaryFromRoute(
+      accessibilityScore: selected.accessibilityScore,
+      estimatedDurationSeconds: selected.estimatedDurationSeconds,
+      steps: selected.steps,
+      warnings: selected.warnings,
+    );
+    if (selected.coordinates.isNotEmpty) {
+      _mapController.move(selected.coordinates.first, _routeFocusZoom);
+    }
   }
 
   Future<_RouteResult> _calculateRoute(LatLng origin, LatLng destination) async {
@@ -272,22 +397,63 @@ class _MapPage extends State<MapPage> {
         // Backend returns [Lon, Lat], LatLng needs [Lat, Lon]
         return LatLng((arr[1] as num).toDouble(), (arr[0] as num).toDouble());
       }).toList();
-      final stepsJson = ((data['steps'] as List?) ?? const []).cast<dynamic>();
-      final parsedSteps = <_NavigationStep>[];
-      if (routeCoordinates.isNotEmpty) {
+      List<_NavigationStep> parseSteps(
+        List<dynamic> stepsJson,
+        List<LatLng> coordinatesForSteps,
+      ) {
+        final parsed = <_NavigationStep>[];
+        if (coordinatesForSteps.isEmpty) {
+          return parsed;
+        }
         for (var i = 0; i < stepsJson.length; i++) {
           final step = (stepsJson[i] as Map<String, dynamic>);
           final pointIndex =
-              i < routeCoordinates.length ? i : routeCoordinates.length - 1;
-          parsedSteps.add(
+              i < coordinatesForSteps.length ? i : coordinatesForSteps.length - 1;
+          parsed.add(
             _NavigationStep(
               distance: (step['distance'] as num?)?.toDouble() ?? 0.0,
               instruction: (step['instruction'] ?? '').toString(),
               pathCondition: (step['path_condition'] ?? 'unknown').toString(),
-              point: routeCoordinates[pointIndex],
+              point: coordinatesForSteps[pointIndex],
             ),
           );
         }
+        return parsed;
+      }
+
+      final parsedSteps = parseSteps(
+        ((data['steps'] as List?) ?? const []).cast<dynamic>(),
+        routeCoordinates,
+      );
+
+      final alternativesJson =
+          ((data['alternative_routes'] as List?) ?? const []).cast<dynamic>();
+      final alternatives = <_RouteAlternativeResult>[];
+      for (final rawAlt in alternativesJson) {
+        final alt = (rawAlt as Map<String, dynamic>);
+        final altCoordsRaw = ((alt['coordinates'] as List?) ?? const []).cast<dynamic>();
+        final altCoords = altCoordsRaw.map((p) {
+          final arr = (p as List).cast<dynamic>();
+          return LatLng((arr[1] as num).toDouble(), (arr[0] as num).toDouble());
+        }).toList();
+        final altSteps = parseSteps(
+          ((alt['steps'] as List?) ?? const []).cast<dynamic>(),
+          altCoords,
+        );
+        alternatives.add(
+          _RouteAlternativeResult(
+            coordinates: altCoords,
+            accessibilityScore:
+                (alt['accessibility_score'] as num?)?.toDouble() ?? 0.0,
+            estimatedDurationSeconds:
+                (alt['estimated_duration_seconds'] as num?)?.toInt() ?? 0,
+            distanceMeters: (alt['distance_meters'] as num?)?.toDouble() ?? 0.0,
+            warnings: ((alt['warnings'] as List?) ?? const [])
+                .map((e) => e.toString())
+                .toList(),
+            steps: altSteps,
+          ),
+        );
       }
 
       return _RouteResult(
@@ -297,6 +463,7 @@ class _MapPage extends State<MapPage> {
         distanceMeters: distance,
         warnings: warnings,
         steps: parsedSteps,
+        alternatives: alternatives,
       );
     } on SocketException {
       throw Exception(
@@ -419,12 +586,21 @@ class _MapPage extends State<MapPage> {
       context: context,
       isScrollControlled: true, 
       backgroundColor: Colors.transparent,
-      builder: (context) => _buildPathSummary(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, modalSetState) => _buildPathSummary(
+          onSelectRoute: (index) {
+            setState(() => _applySelectedRoute(routeIndex: index));
+            modalSetState(() {});
+          },
+        ),
+      ),
     );
   }
 
-  Widget _buildPathSummary() {
+  Widget _buildPathSummary({required ValueChanged<int> onSelectRoute}) {
     final obstacles = pathSummary["obstaclesEncountered"];
+    final routeResult = _latestRouteResult;
+    final routeCount = routeResult == null ? 0 : (1 + routeResult.alternatives.length);
     
     return Container(
       decoration: const BoxDecoration(
@@ -455,6 +631,32 @@ class _MapPage extends State<MapPage> {
           ),
           const SizedBox(height: 20),
 
+          if (routeCount > 1) ...[
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: List.generate(routeCount, (index) {
+                  final label = index == 0 ? "Best" : "Alt $index";
+                  final selected = _selectedRouteIndex == index;
+                  return Padding(
+                    padding: EdgeInsets.only(right: index == routeCount - 1 ? 0 : 8),
+                    child: ChoiceChip(
+                      label: Text(label),
+                      selected: selected,
+                      onSelected: (_) => onSelectRoute(index),
+                      selectedColor: Colors.blue[800],
+                      labelStyle: TextStyle(
+                        color: selected ? Colors.white : Colors.blue[900],
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // CHANGE: Added horizontal obstacle scroll for cleaner space usage
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -465,6 +667,8 @@ class _MapPage extends State<MapPage> {
                 _obstacleChip(Icons.construction_rounded, "${obstacles['obstruction']} Blocked"),
                 const SizedBox(width: 8),
                 _obstacleChip(Icons.do_not_disturb_on_rounded, "${obstacles['noSidewalk']} No Sidewalk"),
+                const SizedBox(width: 8),
+                _obstacleChip(Icons.warning_amber_rounded, "${obstacles['nearHazard']} Near Hazard"),
               ],
             ),
           ),
@@ -601,6 +805,7 @@ class _MapPage extends State<MapPage> {
       MaterialPageRoute(
         builder: (_) => ReportPage(
           currentIndex: 2,
+          showNavBar: false,
           initialLatitude: reportPoint.latitude,
           initialLongitude: reportPoint.longitude,
           initialLocationLabel: locationLabel,
@@ -807,7 +1012,9 @@ class _MapPage extends State<MapPage> {
           if(_isNavigating) _buildNavigationHud()
         ],
       ),
-      bottomNavigationBar: _isNavigating ? null : CustomNavBar(selectedIndex: widget.currentIndex),
+      bottomNavigationBar: (widget.showNavBar && !_isNavigating)
+          ? CustomNavBar(selectedIndex: widget.currentIndex)
+          : null,
     );
   }
 }

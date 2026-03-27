@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app/screen/map_test.dart';
-import 'map_page.dart';
+import 'app_shell.dart';
 import '../screen/signup.dart';
 
 class LoginPage extends StatefulWidget {
@@ -129,7 +128,7 @@ class _LoginPage extends State<LoginPage> {
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
                       debugPrint("Logging in with $email");
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => MapPage()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => AppShell(initialIndex: 1)));
                       // [UNCOMMENT THIS IF CALCULATION ERROR PERSISTS, COMMENT THE ONE ABOVE] Navigator.push(context, MaterialPageRoute(builder: (context) => MapTest()));
                     }
                   },
