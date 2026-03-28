@@ -10,6 +10,7 @@ from typing import Dict, Iterator, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy import and_, func, or_, text
 from sqlalchemy.orm import Session
 
@@ -85,15 +86,24 @@ def _absolute_media_url(path: Optional[str]) -> str:
 def _verification_counts(db: Session, report_ids: List[int]) -> Dict[int, int]:
     if not report_ids:
         return {}
-    rows = (
-        db.query(
-            ObstacleVerification.obstacle_report_id,
-            func.count(ObstacleVerification.id),
+    try:
+        rows = (
+            db.query(
+                ObstacleVerification.obstacle_report_id,
+                func.count(ObstacleVerification.id),
+            )
+            .filter(ObstacleVerification.obstacle_report_id.in_(report_ids))
+            .group_by(ObstacleVerification.obstacle_report_id)
+            .all()
         )
-        .filter(ObstacleVerification.obstacle_report_id.in_(report_ids))
-        .group_by(ObstacleVerification.obstacle_report_id)
-        .all()
-    )
+    except ProgrammingError as exc:
+        # Backward compatibility for partially migrated DBs where the
+        # obstacle_verifications table does not exist yet.
+        db.rollback()
+        err = str(getattr(exc, "orig", exc)).lower()
+        if "obstacle_verifications" not in err:
+            raise
+        return {}
     return {int(rid): int(c) for rid, c in rows}
 
 
@@ -320,7 +330,7 @@ def export_planning_reports_csv(
     stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     filename = f"pathag_accessibility_reports_{stamp}.csv"
     headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    return StreamingResponse(rows(), media_type="text/csv; charset=utf-8", headers=headers)
+    return StreamingResponse(rows(), media_type="text/csv", headers=headers)
 
 
 @router.post(
@@ -430,4 +440,4 @@ def export_planning_heatmap_csv(
     stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     filename = f"pathag_heatmap_cells_{stamp}.csv"
     headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    return StreamingResponse(rows(), media_type="text/csv; charset=utf-8", headers=headers)
+    return StreamingResponse(rows(), media_type="text/csv", headers=headers)
